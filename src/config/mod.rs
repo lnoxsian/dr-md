@@ -23,10 +23,22 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
+    fn get_config_path() -> Option<std::path::PathBuf> {
+        #[cfg(target_os = "windows")]
+        {
+            directories::ProjectDirs::from("com", "drmd", "dr-md")
+                .map(|proj| proj.config_dir().join("config.toml"))
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            directories::BaseDirs::new().map(|base| {
+                base.home_dir().join(".config").join("dr-md").join("config.toml")
+            })
+        }
+    }
+
     pub fn load() -> Self {
-        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "drmd", "dr-md") {
-            let config_dir = proj_dirs.config_dir();
-            let config_path = config_dir.join("config.toml");
+        if let Some(config_path) = Self::get_config_path() {
             if config_path.exists() {
                 if let Ok(content) = std::fs::read_to_string(&config_path) {
                     if let Ok(config) = toml::from_str(&content) {
@@ -39,13 +51,28 @@ impl AppConfig {
     }
 
     pub fn save(&self) -> Result<(), anyhow::Error> {
-        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "drmd", "dr-md") {
-            let config_dir = proj_dirs.config_dir();
-            std::fs::create_dir_all(config_dir)?;
-            let config_path = config_dir.join("config.toml");
+        if let Some(config_path) = Self::get_config_path() {
+            if let Some(parent) = config_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
             let content = toml::to_string_pretty(self)?;
             std::fs::write(config_path, content)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_path() {
+        let path = AppConfig::get_config_path().unwrap();
+        assert!(
+            path.to_string_lossy().ends_with(".config/dr-md/config.toml")
+                || path.to_string_lossy().ends_with(".config\\dr-md\\config.toml")
+                || cfg!(target_os = "windows")
+        );
     }
 }

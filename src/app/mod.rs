@@ -174,10 +174,16 @@ impl eframe::App for DoctorMarkdownApp {
 
                     ui.menu_button("Settings", |ui| {
                         ui.label("Font Size:");
-                        ui.add(egui::Slider::new(&mut self.state.config.font_size, 10.0..=30.0));
+                        if ui.add(egui::Slider::new(&mut self.state.config.font_size, 10.0..=30.0)).changed() {
+                            let _ = self.state.config.save();
+                        }
                         ui.separator();
-                        ui.checkbox(&mut self.state.config.line_numbers, "Show Line Numbers");
-                        ui.checkbox(&mut self.state.config.autosave, "Autosave");
+                        if ui.checkbox(&mut self.state.config.line_numbers, "Show Line Numbers").changed() {
+                            let _ = self.state.config.save();
+                        }
+                        if ui.checkbox(&mut self.state.config.autosave, "Autosave").changed() {
+                            let _ = self.state.config.save();
+                        }
                     });
                 });
             });
