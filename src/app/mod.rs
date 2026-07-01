@@ -213,29 +213,15 @@ impl eframe::App for DoctorMarkdownApp {
                         self.state.preview.show(ui, &content, self.state.config.preview_font_size);
                     }
                     ViewMode::Split => {
-                        let width = ui.available_width() / 2.0;
-                        ui.horizontal(|ui| {
-                            ui.allocate_ui_with_layout(
-                                egui::vec2(width, ui.available_height()),
-                                egui::Layout::top_down(egui::Align::Min),
-                                |ui| {
-                                    self.state.editor_renderer.show(
-                                        ui,
-                                        &mut self.state.editor,
-                                        self.state.config.font_size,
-                                        self.state.config.line_numbers
-                                    );
-                                }
+                        ui.columns(2, |columns| {
+                            self.state.editor_renderer.show(
+                                &mut columns[0],
+                                &mut self.state.editor,
+                                self.state.config.font_size,
+                                self.state.config.line_numbers
                             );
-                            ui.separator();
-                            ui.allocate_ui_with_layout(
-                                egui::vec2(ui.available_width(), ui.available_height()),
-                                egui::Layout::top_down(egui::Align::Min),
-                                |ui| {
-                                    let content = self.state.editor.buffer.to_string();
-                                    self.state.preview.show(ui, &content, self.state.config.preview_font_size);
-                                }
-                            );
+                            let content = self.state.editor.buffer.to_string();
+                            self.state.preview.show(&mut columns[1], &content, self.state.config.preview_font_size);
                         });
                     }
                 }
