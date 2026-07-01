@@ -20,9 +20,33 @@ impl DoctorMarkdownApp {
         }
     }
 }
-
 impl eframe::App for DoctorMarkdownApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Some(open_url) = ctx.output_mut(|o| o.open_url.take()) {
+            let url_str = open_url.url.as_str();
+            if !url_str.starts_with("http://") && !url_str.starts_with("https://") && !url_str.starts_with("mailto:") {
+                let decoded_path = urlencoding::decode(url_str).unwrap_or(std::borrow::Cow::Borrowed(url_str));
+                if let Some(ref root) = self.state.vault.root_path {
+                    let mut target_path = root.join(decoded_path.as_ref());
+                    if !target_path.is_dir() && !target_path.to_string_lossy().ends_with(".md") {
+                        target_path = root.join(format!("{}.md", decoded_path));
+                    }
+
+                    if target_path.exists() && target_path.is_file() {
+                        commands::execute_open_file(&mut self.state, target_path);
+                    } else {
+                        if let Some(parent) = target_path.parent() {
+                            std::fs::create_dir_all(parent).ok();
+                        }
+                        std::fs::write(&target_path, "").ok();
+                        commands::execute_open_file(&mut self.state, target_path);
+                    }
+                }
+            } else {
+                ctx.output_mut(|o| o.open_url = Some(open_url));
+            }
+        }
+
         if let Some(action) = handle_key_events(ctx) {
             match action {
                 ShortcutAction::NewNote => {
@@ -209,10 +233,16 @@ impl eframe::App for DoctorMarkdownApp {
                         );
                     }
                     ViewMode::Preview => {
-                        let content = self.state.editor.buffer.to_string();
-                        self.state.preview.show(ui, &content, self.state.config.preview_font_size);
+                        let mut content = self.state.editor.buffer.to_string();
+                        let old_content = content.clone();
+                        self.state.preview.show(ui, &mut content, self.state.config.preview_font_size);
+                        if content != old_content {
+                            self.state.editor.set_text(&content);
+                        }
                     }
                     ViewMode::Split => {
+                        let mut content = self.state.editor.buffer.to_string();
+                        let old_content = content.clone();
                         ui.columns(2, |columns| {
                             self.state.editor_renderer.show(
                                 &mut columns[0],
@@ -220,9 +250,11 @@ impl eframe::App for DoctorMarkdownApp {
                                 self.state.config.font_size,
                                 self.state.config.line_numbers
                             );
-                            let content = self.state.editor.buffer.to_string();
-                            self.state.preview.show(&mut columns[1], &content, self.state.config.preview_font_size);
+                            self.state.preview.show(&mut columns[1], &mut content, self.state.config.preview_font_size);
                         });
+                        if content != old_content {
+                            self.state.editor.set_text(&content);
+                        }
                     }
                 }
             } else {
