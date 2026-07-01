@@ -16,6 +16,7 @@ impl MarkdownPreview {
         
         egui::ScrollArea::vertical()
             .id_source("markdown_preview_scroll")
+            .auto_shrink([false; 2])
             .show(ui, |ui| {
                 let mut style = ui.style().as_ref().clone();
                 let body_font = egui::FontId::new(font_size, egui::FontFamily::Proportional);
@@ -29,6 +30,9 @@ impl MarkdownPreview {
                 ui.set_style(style);
 
                 CommonMarkViewer::new("markdown_viewer").show(ui, &mut self.cache, &processed);
+                
+                // Add bottom padding inside scroll viewport
+                ui.add_space(100.0);
             });
     }
 }

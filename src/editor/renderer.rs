@@ -162,48 +162,60 @@ impl EditorRenderer {
         };
 
         if line_numbers {
-            ui.horizontal_top(|ui| {
-                let total_lines = self.content_buffer.lines().count().max(1);
-                let mut line_nums_str = String::new();
-                for i in 1..=total_lines {
-                    line_nums_str.push_str(&format!("{}\n", i));
-                }
-                
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(line_nums_str)
-                            .font(FontId::monospace(font_size))
-                            .color(Color32::from_rgb(100, 100, 100))
-                    )
-                );
-                
-                let output = egui::ScrollArea::vertical()
-                    .id_source("editor_scroll")
-                    .show(ui, |ui| {
-                        ui.add_sized(
-                            ui.available_size(),
+            let total_lines = self.content_buffer.lines().count().max(1);
+            let mut line_nums_str = String::new();
+            for i in 1..=total_lines {
+                line_nums_str.push_str(&format!("{}\n", i));
+            }
+
+            let output = egui::ScrollArea::vertical()
+                .id_source("editor_scroll")
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    let edit_response = ui.horizontal_top(|ui| {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(line_nums_str)
+                                    .font(FontId::monospace(font_size))
+                                    .color(Color32::from_rgb(100, 100, 100))
+                            )
+                        );
+                        
+                        ui.add(
                             egui::TextEdit::multiline(&mut self.content_buffer)
                                 .font(FontId::monospace(font_size))
                                 .frame(false)
                                 .layouter(&mut layouter)
+                                .desired_width(f32::INFINITY)
                         )
                     });
-                
-                if output.inner.changed() {
-                    self.sync_to_editor(editor);
-                }
-            });
+                    
+                    // Add bottom padding inside scroll viewport
+                    ui.add_space(100.0);
+                    
+                    edit_response.inner
+                });
+            
+            if output.inner.changed() {
+                self.sync_to_editor(editor);
+            }
         } else {
             let output = egui::ScrollArea::vertical()
                 .id_source("editor_scroll")
+                .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    ui.add_sized(
-                        ui.available_size(),
+                    let res = ui.add(
                         egui::TextEdit::multiline(&mut self.content_buffer)
                             .font(FontId::monospace(font_size))
                             .frame(false)
                             .layouter(&mut layouter)
-                    )
+                            .desired_width(f32::INFINITY)
+                    );
+                    
+                    // Add bottom padding inside scroll viewport
+                    ui.add_space(100.0);
+                    
+                    res
                 });
             if output.inner.changed() {
                 self.sync_to_editor(editor);
