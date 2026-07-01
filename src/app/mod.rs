@@ -155,7 +155,6 @@ impl eframe::App for DoctorMarkdownApp {
                         ui.add(egui::Slider::new(&mut self.state.config.preview_font_size, 10.0..=30.0));
                         ui.separator();
                         ui.checkbox(&mut self.state.config.line_numbers, "Show Line Numbers");
-                        ui.checkbox(&mut self.state.config.vim_mode, "Vim Mode (WIP)");
                         ui.checkbox(&mut self.state.config.autosave, "Autosave");
                     });
 

@@ -29,7 +29,7 @@ impl EditorRenderer {
         let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
             let mut job = LayoutJob::default();
             let normal_font = FontId::monospace(font_size);
-            let heading_font = FontId::monospace(font_size + 3.0);
+            let heading_font = FontId::monospace(font_size);
             
             let default_color = ui.style().visuals.text_color();
             let header_color = Color32::from_rgb(240, 140, 60);

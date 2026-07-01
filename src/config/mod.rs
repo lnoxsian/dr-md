@@ -7,7 +7,6 @@ pub struct AppConfig {
     pub font_size: f32,
     pub preview_font_size: f32,
     pub line_numbers: bool,
-    pub vim_mode: bool,
     pub autosave: bool,
     pub tab_width: usize,
 }
@@ -19,7 +18,6 @@ impl Default for AppConfig {
             font_size: 14.0,
             preview_font_size: 14.0,
             line_numbers: true,
-            vim_mode: false,
             autosave: true,
             tab_width: 4,
         }
