@@ -45,6 +45,10 @@ impl AppConfig {
                         return config;
                     }
                 }
+            } else {
+                let default_config = Self::default();
+                let _ = default_config.save();
+                return default_config;
             }
         }
         Self::default()

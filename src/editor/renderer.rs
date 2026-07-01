@@ -33,76 +33,80 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    let (gutter_rect, edit_res) = {
-                        let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
-                            let default_color = ui.style().visuals.text_color();
-                            let mut job = create_layout_job(text, font_size, default_color);
-                            job.wrap.max_width = wrap_width;
-                            let galley = ui.fonts(|f| f.layout_job(job));
+                    egui::Frame::none()
+                        .inner_margin(egui::Margin::symmetric(24.0, 0.0))
+                        .show(ui, |ui| {
+                            let (gutter_rect, edit_res) = {
+                                let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
+                                    let default_color = ui.style().visuals.text_color();
+                                    let mut job = create_layout_job(text, font_size, default_color);
+                                    job.wrap.max_width = wrap_width;
+                                    let galley = ui.fonts(|f| f.layout_job(job));
 
-                            let mut line_starts = vec![0];
-                            for (idx, c) in text.char_indices() {
-                                if c == '\n' {
-                                    line_starts.push(idx + 1);
-                                }
+                                    let mut line_starts = vec![0];
+                                    for (idx, c) in text.char_indices() {
+                                        if c == '\n' {
+                                            line_starts.push(idx + 1);
+                                        }
+                                    }
+
+                                    let mut positions = Vec::new();
+                                    let mut current_char_idx = 0;
+                                    for row in &galley.rows {
+                                        if let Ok(line_idx) = line_starts.binary_search(&current_char_idx) {
+                                            positions.push((line_idx + 1, row.rect.min.y));
+                                        }
+                                        let row_char_count = row.glyphs.len() + if row.ends_with_newline { 1 } else { 0 };
+                                        current_char_idx += row_char_count;
+                                    }
+                                    line_positions = positions;
+
+                                    galley
+                                };
+
+                                ui.horizontal_top(|ui| {
+                                    let gutter_width = 30.0;
+                                    let (gutter_rect, _) = ui.allocate_at_least(
+                                        egui::vec2(gutter_width, ui.available_height()),
+                                        egui::Sense::hover()
+                                    );
+
+                                    let edit_res = ui.add(
+                                        egui::TextEdit::multiline(&mut self.content_buffer)
+                                            .font(FontId::monospace(font_size))
+                                            .frame(false)
+                                            .layouter(&mut layouter)
+                                            .desired_width(f32::INFINITY)
+                                    );
+
+                                    (gutter_rect, edit_res)
+                                }).inner
+                            };
+
+                            // Paint line numbers onto the allocated gutter_rect
+                            let painter = ui.painter();
+                            let text_color = Color32::from_rgb(100, 100, 100);
+                            let font = FontId::monospace(font_size);
+
+                            for (line_num, y_offset) in &line_positions {
+                                let text_pos = egui::pos2(
+                                    gutter_rect.max.x - 5.0,
+                                    edit_res.rect.min.y + y_offset
+                                );
+                                painter.text(
+                                    text_pos,
+                                    egui::Align2::RIGHT_TOP,
+                                    line_num.to_string(),
+                                    font.clone(),
+                                    text_color
+                                );
                             }
 
-                            let mut positions = Vec::new();
-                            let mut current_char_idx = 0;
-                            for row in &galley.rows {
-                                if let Ok(line_idx) = line_starts.binary_search(&current_char_idx) {
-                                    positions.push((line_idx + 1, row.rect.min.y));
-                                }
-                                let row_char_count = row.glyphs.len() + if row.ends_with_newline { 1 } else { 0 };
-                                current_char_idx += row_char_count;
-                            }
-                            line_positions = positions;
+                            // Add bottom padding inside scroll viewport
+                            ui.add_space(100.0);
 
-                            galley
-                        };
-
-                        ui.horizontal_top(|ui| {
-                            let gutter_width = 30.0;
-                            let (gutter_rect, _) = ui.allocate_at_least(
-                                egui::vec2(gutter_width, ui.available_height()),
-                                egui::Sense::hover()
-                            );
-
-                            let edit_res = ui.add(
-                                egui::TextEdit::multiline(&mut self.content_buffer)
-                                    .font(FontId::monospace(font_size))
-                                    .frame(false)
-                                    .layouter(&mut layouter)
-                                    .desired_width(f32::INFINITY)
-                            );
-
-                            (gutter_rect, edit_res)
+                            edit_res
                         }).inner
-                    };
-
-                    // Paint line numbers onto the allocated gutter_rect
-                    let painter = ui.painter();
-                    let text_color = Color32::from_rgb(100, 100, 100);
-                    let font = FontId::monospace(font_size);
-
-                    for (line_num, y_offset) in &line_positions {
-                        let text_pos = egui::pos2(
-                            gutter_rect.max.x - 5.0,
-                            edit_res.rect.min.y + y_offset
-                        );
-                        painter.text(
-                            text_pos,
-                            egui::Align2::RIGHT_TOP,
-                            line_num.to_string(),
-                            font.clone(),
-                            text_color
-                        );
-                    }
-
-                    // Add bottom padding inside scroll viewport
-                    ui.add_space(100.0);
-
-                    edit_res
                 });
             
             if output.inner.changed() {
@@ -120,18 +124,22 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    let res = ui.add(
-                        egui::TextEdit::multiline(&mut self.content_buffer)
-                            .font(FontId::monospace(font_size))
-                            .frame(false)
-                            .layouter(&mut layouter)
-                            .desired_width(f32::INFINITY)
-                    );
-                    
-                    // Add bottom padding inside scroll viewport
-                    ui.add_space(100.0);
-                    
-                    res
+                    egui::Frame::none()
+                        .inner_margin(egui::Margin::symmetric(24.0, 0.0))
+                        .show(ui, |ui| {
+                            let res = ui.add(
+                                egui::TextEdit::multiline(&mut self.content_buffer)
+                                    .font(FontId::monospace(font_size))
+                                    .frame(false)
+                                    .layouter(&mut layouter)
+                                    .desired_width(f32::INFINITY)
+                            );
+                            
+                            // Add bottom padding inside scroll viewport
+                            ui.add_space(100.0);
+                            
+                            res
+                        }).inner
                 });
             if output.inner.changed() {
                 self.sync_to_editor(editor);

@@ -236,7 +236,9 @@ impl eframe::App for DoctorMarkdownApp {
                 });
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let panel_frame = egui::Frame::central_panel(&ctx.style())
+            .inner_margin(egui::Margin::symmetric(0.0, 8.0));
+        egui::CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
             if self.state.vault.active_file.is_some() {
                 match self.state.view_mode {
                     ViewMode::Editor => {

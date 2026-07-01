@@ -19,21 +19,25 @@ impl MarkdownPreview {
             .id_source("markdown_preview_scroll")
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-                let mut style = ui.style().as_ref().clone();
-                let body_font = egui::FontId::new(font_size, egui::FontFamily::Proportional);
-                let heading_font = egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
-                let monospace_font = egui::FontId::new(font_size, egui::FontFamily::Monospace);
-                
-                style.text_styles.insert(egui::TextStyle::Body, body_font);
-                style.text_styles.insert(egui::TextStyle::Heading, heading_font);
-                style.text_styles.insert(egui::TextStyle::Monospace, monospace_font);
-                
-                ui.set_style(style);
+                egui::Frame::none()
+                    .inner_margin(egui::Margin::symmetric(24.0, 0.0))
+                    .show(ui, |ui| {
+                        let mut style = ui.style().as_ref().clone();
+                        let body_font = egui::FontId::new(font_size, egui::FontFamily::Proportional);
+                        let heading_font = egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
+                        let monospace_font = egui::FontId::new(font_size, egui::FontFamily::Monospace);
+                        
+                        style.text_styles.insert(egui::TextStyle::Body, body_font);
+                        style.text_styles.insert(egui::TextStyle::Heading, heading_font);
+                        style.text_styles.insert(egui::TextStyle::Monospace, monospace_font);
+                        
+                        ui.set_style(style);
 
-                CommonMarkViewer::new("markdown_viewer").show_mut(ui, &mut self.cache, &mut processed);
-                
-                // Add bottom padding inside scroll viewport
-                ui.add_space(100.0);
+                        CommonMarkViewer::new("markdown_viewer").show_mut(ui, &mut self.cache, &mut processed);
+                        
+                        // Add bottom padding inside scroll viewport
+                        ui.add_space(100.0);
+                    });
             });
 
         if processed != processed_old {
