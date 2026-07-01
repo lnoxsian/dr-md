@@ -1,0 +1,248 @@
+pub mod state;
+pub mod commands;
+
+use state::{AppState, ViewMode};
+use crate::keymap::{handle_key_events, ShortcutAction};
+use std::path::PathBuf;
+
+pub struct DoctorMarkdownApp {
+    state: AppState,
+}
+
+impl DoctorMarkdownApp {
+    pub fn new(cc: &eframe::CreationContext<'_>, root_path: Option<PathBuf>) -> Self {
+        let mut style = (*cc.egui_ctx.style()).clone();
+        style.visuals.dark_mode = true;
+        cc.egui_ctx.set_style(style);
+
+        Self {
+            state: AppState::new(root_path),
+        }
+    }
+}
+
+impl eframe::App for DoctorMarkdownApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Some(action) = handle_key_events(ctx) {
+            match action {
+                ShortcutAction::NewNote => {
+                    commands::execute_new_note(&mut self.state);
+                }
+                ShortcutAction::OpenFolder => {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                        self.state.vault.set_root(path);
+                    }
+                }
+                ShortcutAction::Save => {
+                    commands::execute_save(&mut self.state);
+                }
+                ShortcutAction::SaveAs => {
+                    if let Some(path) = rfd::FileDialog::new().save_file() {
+                        commands::execute_save_as(&mut self.state, path);
+                    }
+                }
+                ShortcutAction::CloseNote => {
+                    self.state.vault.active_file = None;
+                    self.state.editor = crate::editor::Editor::new();
+                }
+                ShortcutAction::Undo => {
+                    self.state.editor.undo();
+                }
+                ShortcutAction::Redo => {
+                    self.state.editor.redo();
+                }
+                ShortcutAction::ViewEditor => {
+                    self.state.view_mode = ViewMode::Editor;
+                }
+                ShortcutAction::ViewPreview => {
+                    self.state.view_mode = ViewMode::Preview;
+                }
+                ShortcutAction::ViewSplit => {
+                    self.state.view_mode = ViewMode::Split;
+                }
+                ShortcutAction::ToggleExplorer => {
+                    self.state.explorer_visible = !self.state.explorer_visible;
+                }
+                ShortcutAction::ToggleFocusMode => {
+                    self.state.focus_mode = !self.state.focus_mode;
+                    if self.state.focus_mode {
+                        self.state.explorer_visible = false;
+                    } else {
+                        self.state.explorer_visible = true;
+                    }
+                }
+                ShortcutAction::Bold => {
+                    self.state.editor.insert_text("****");
+                }
+                ShortcutAction::Italic => {
+                    self.state.editor.insert_text("**");
+                }
+                ShortcutAction::Link => {
+                    self.state.editor.insert_text("[](url)");
+                }
+                ShortcutAction::CodeBlock => {
+                    self.state.editor.insert_text("```\n\n```");
+                }
+                ShortcutAction::Checkbox => {
+                    self.state.editor.insert_text("- [ ] ");
+                }
+                _ => {}
+            }
+        }
+
+        if !self.state.focus_mode {
+            egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
+                egui::menu::bar(ui, |ui| {
+                    ui.menu_button("File", |ui| {
+                        if ui.button("New Note (Ctrl+N)").clicked() {
+                            commands::execute_new_note(&mut self.state);
+                            ui.close_menu();
+                        }
+                        if ui.button("Open Folder (Ctrl+O)").clicked() {
+                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                self.state.vault.set_root(path);
+                            }
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.button("Save (Ctrl+S)").clicked() {
+                            commands::execute_save(&mut self.state);
+                            ui.close_menu();
+                        }
+                        if ui.button("Save As (Ctrl+Shift+S)").clicked() {
+                            if let Some(path) = rfd::FileDialog::new().save_file() {
+                                commands::execute_save_as(&mut self.state, path);
+                            }
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.button("Close Note (Ctrl+W)").clicked() {
+                            self.state.vault.active_file = None;
+                            self.state.editor = crate::editor::Editor::new();
+                            ui.close_menu();
+                        }
+                    });
+
+                    ui.menu_button("View", |ui| {
+                        if ui.selectable_label(self.state.view_mode == ViewMode::Editor, "Editor Mode (Ctrl+1)").clicked() {
+                            self.state.view_mode = ViewMode::Editor;
+                            ui.close_menu();
+                        }
+                        if ui.selectable_label(self.state.view_mode == ViewMode::Preview, "Preview Mode (Ctrl+2)").clicked() {
+                            self.state.view_mode = ViewMode::Preview;
+                            ui.close_menu();
+                        }
+                        if ui.selectable_label(self.state.view_mode == ViewMode::Split, "Split Mode (Ctrl+3)").clicked() {
+                            self.state.view_mode = ViewMode::Split;
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui.selectable_label(self.state.explorer_visible, "Show File Explorer (Ctrl+E)").clicked() {
+                            self.state.explorer_visible = !self.state.explorer_visible;
+                            ui.close_menu();
+                        }
+                        if ui.selectable_label(self.state.focus_mode, "Focus Mode (F11)").clicked() {
+                            self.state.focus_mode = !self.state.focus_mode;
+                            self.state.explorer_visible = !self.state.focus_mode;
+                            ui.close_menu();
+                        }
+                    });
+
+                    ui.menu_button("Settings", |ui| {
+                        ui.label("Font Size:");
+                        ui.add(egui::Slider::new(&mut self.state.config.font_size, 10.0..=30.0));
+                        ui.separator();
+                        ui.checkbox(&mut self.state.config.line_numbers, "Show Line Numbers");
+                        ui.checkbox(&mut self.state.config.vim_mode, "Vim Mode (WIP)");
+                        ui.checkbox(&mut self.state.config.autosave, "Autosave");
+                    });
+
+                    ui.separator();
+
+                    if let Some(ref path) = self.state.editor.active_path {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy();
+                        let dirty = if self.state.editor.is_dirty { "*" } else { "" };
+                        ui.label(format!("{}{}", name, dirty));
+                    } else {
+                        ui.label("No file open");
+                    }
+                });
+            });
+        }
+
+        if self.state.explorer_visible && !self.state.focus_mode {
+            egui::SidePanel::left("file_explorer")
+                .resizable(true)
+                .default_width(200.0)
+                .show(ctx, |ui| {
+                    ui.heading("Explorer");
+                    ui.separator();
+
+                    if let Some(ref root) = self.state.vault.root_path {
+                        let mut active_file = self.state.vault.active_file.clone();
+                        if let Some(clicked) = self.state.explorer.show(ui, root, &mut active_file) {
+                            commands::execute_open_file(&mut self.state, clicked);
+                        }
+                    } else {
+                        ui.vertical_centered(|ui| {
+                            ui.label("No folder opened");
+                            if ui.button("Open Folder").clicked() {
+                                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                    self.state.vault.set_root(path);
+                                }
+                            }
+                        });
+                    }
+                });
+        }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if self.state.vault.active_file.is_some() {
+                match self.state.view_mode {
+                    ViewMode::Editor => {
+                        self.state.editor_renderer.show(
+                            ui,
+                            &mut self.state.editor,
+                            self.state.config.font_size,
+                            self.state.config.line_numbers
+                        );
+                    }
+                    ViewMode::Preview => {
+                        let content = self.state.editor.buffer.to_string();
+                        self.state.preview.show(ui, &content);
+                    }
+                    ViewMode::Split => {
+                        let width = ui.available_width() / 2.0;
+                        ui.horizontal(|ui| {
+                            ui.allocate_ui_with_layout(
+                                egui::vec2(width, ui.available_height()),
+                                egui::Layout::top_down(egui::Align::Min),
+                                |ui| {
+                                    self.state.editor_renderer.show(
+                                        ui,
+                                        &mut self.state.editor,
+                                        self.state.config.font_size,
+                                        self.state.config.line_numbers
+                                    );
+                                }
+                            );
+                            ui.separator();
+                            ui.allocate_ui_with_layout(
+                                egui::vec2(ui.available_width(), ui.available_height()),
+                                egui::Layout::top_down(egui::Align::Min),
+                                |ui| {
+                                    let content = self.state.editor.buffer.to_string();
+                                    self.state.preview.show(ui, &content);
+                                }
+                            );
+                        });
+                    }
+                }
+            } else {
+                ui.centered_and_justified(|ui| {
+                    ui.label("Welcome to dr.md (Doctor Markdown)\n\nPress Ctrl+N to create a new note\nor Ctrl+O to open a workspace folder.");
+                });
+            }
+        });
+    }
+}

@@ -4,3 +4,24 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+eframe = "0.27"
+egui = "0.27"
+egui_extras = { version = "0.27", features = ["image"] }
+egui_commonmark = { version = "0.14.0", features = ["better_syntax_highlighting"] }
+pulldown-cmark = "0.10"
+ropey = "1.6"
+syntect = "5.2"
+walkdir = "2"
+ignore = "0.4"
+notify = "6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+directories = "5"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1.0"
+thiserror = "1.0"
+rfd = "0.14"
+
+

@@ -1,0 +1,57 @@
+use ropey::Rope;
+use std::fs;
+use std::path::Path;
+use anyhow::Result;
+
+pub struct EditBuffer {
+    pub rope: Rope,
+}
+
+impl EditBuffer {
+    pub fn new() -> Self {
+        Self {
+            rope: Rope::new(),
+        }
+    }
+
+    pub fn from_str(text: &str) -> Self {
+        Self {
+            rope: Rope::from_str(text),
+        }
+    }
+
+    pub fn load_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        let content = fs::read_to_string(path)?;
+        self.rope = Rope::from_str(&content);
+        Ok(())
+    }
+
+    pub fn save_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let file = fs::File::create(path)?;
+        self.rope.write_to(std::io::BufWriter::new(file))?;
+        Ok(())
+    }
+
+    pub fn to_string(&self) -> String {
+        self.rope.to_string()
+    }
+
+    pub fn len_chars(&self) -> usize {
+        self.rope.len_chars()
+    }
+
+    pub fn insert(&mut self, char_idx: usize, text: &str) {
+        if char_idx <= self.rope.len_chars() {
+            self.rope.insert(char_idx, text);
+        }
+    }
+
+    pub fn remove(&mut self, start_idx: usize, end_idx: usize) {
+        let len = self.rope.len_chars();
+        let s = start_idx.min(len);
+        let e = end_idx.min(len);
+        if s < e {
+            self.rope.remove(s..e);
+        }
+    }
+}
