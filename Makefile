@@ -49,3 +49,12 @@ docker-export:
 	docker run --rm --entrypoint cat dr-md-builder /app/target/release/dr-md > target/docker/dr-md
 	chmod +x target/docker/dr-md
 
+# Update the application version in Cargo.toml and VERSION file
+update-version:
+	@version=$$(echo "$(version)$(VERSION)" | sed 's/ //g'); \
+	if [ -z "$$version" ]; then echo "Usage: make update-version version=x.y.z"; exit 1; fi; \
+	sed -i 's/^version = "[^"]*"/version = "'$$version'"/' Cargo.toml; \
+	echo "APP_VERSION=$$version" > VERSION; \
+	echo "RUST_VERSION=$$(rustc --version | awk '{print $$2}')" >> VERSION
+
+
