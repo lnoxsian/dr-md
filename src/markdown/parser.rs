@@ -64,3 +64,30 @@ pub fn preprocess_wiki_links(content: &str) -> String {
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_preprocess_wiki_links_complete() {
+        assert_eq!(preprocess_wiki_links("[[hello]]"), "[hello](hello.md)");
+        assert_eq!(preprocess_wiki_links("[[hello|label]]"), "[label](hello.md)");
+    }
+
+    #[test]
+    fn test_preprocess_wiki_links_incomplete() {
+        assert_eq!(preprocess_wiki_links("[[hello"), "[[hello");
+        assert_eq!(preprocess_wiki_links("[[hello]"), "[[hello]");
+        assert_eq!(preprocess_wiki_links("hello [ world"), "hello [ world");
+    }
+
+    #[test]
+    fn test_extract_wiki_links() {
+        assert_eq!(extract_wiki_links("[[hello]]"), vec!["hello".to_string()]);
+        assert_eq!(extract_wiki_links("[[hello|label]]"), vec!["hello|label".to_string()]);
+        let empty: Vec<String> = vec![];
+        assert_eq!(extract_wiki_links("[[hello"), empty);
+    }
+}
+

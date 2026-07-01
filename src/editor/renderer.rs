@@ -63,9 +63,19 @@ impl EditorRenderer {
                 let line_chars: Vec<char> = line.chars().collect();
                 let mut idx = 0;
                 while idx < line_chars.len() {
-                    if idx + 1 < line_chars.len() && line_chars[idx] == '[' && line_chars[idx+1] == '[' {
-                        if let Some(end_idx) = line[idx..].find("]]") {
-                            let text_segment: String = line_chars[idx..idx + end_idx + 2].iter().collect();
+                    let mut matched = false;
+
+                    // Check for wiki link: [[path]] or [[path|label]]
+                    if idx + 2 < line_chars.len() && line_chars[idx] == '[' && line_chars[idx+1] == '[' {
+                        let mut end_pos = None;
+                        for j in (idx + 2)..line_chars.len() {
+                            if j + 1 < line_chars.len() && line_chars[j] == ']' && line_chars[j+1] == ']' {
+                                end_pos = Some(j);
+                                break;
+                            }
+                        }
+                        if let Some(j) = end_pos {
+                            let text_segment: String = line_chars[idx..=j+1].iter().collect();
                             job.append(
                                 &text_segment,
                                 0.0,
@@ -76,17 +86,31 @@ impl EditorRenderer {
                                     ..Default::default()
                                 }
                             );
-                            idx += end_idx + 2;
-                            continue;
+                            idx = j + 2;
+                            matched = true;
                         }
                     }
 
-                    if line_chars[idx] == '[' {
-                        if let Some(end_bracket) = line[idx..].find(']') {
-                            if idx + end_bracket + 1 < line.len() && line.as_bytes()[idx + end_bracket + 1] == b'(' {
-                                if let Some(end_paren) = line[idx + end_bracket + 1..].find(')') {
-                                    let total_len = end_bracket + 1 + end_paren + 1;
-                                    let text_segment: String = line_chars[idx..idx + total_len].iter().collect();
+                    // Check for standard markdown link: [label](url)
+                    if !matched && line_chars[idx] == '[' {
+                        let mut end_bracket = None;
+                        for j in (idx + 1)..line_chars.len() {
+                            if line_chars[j] == ']' {
+                                end_bracket = Some(j);
+                                break;
+                            }
+                        }
+                        if let Some(eb) = end_bracket {
+                            if eb + 1 < line_chars.len() && line_chars[eb+1] == '(' {
+                                let mut end_paren = None;
+                                for j in (eb + 2)..line_chars.len() {
+                                    if line_chars[j] == ')' {
+                                        end_paren = Some(j);
+                                        break;
+                                    }
+                                }
+                                if let Some(ep) = end_paren {
+                                    let text_segment: String = line_chars[idx..=ep].iter().collect();
                                     job.append(
                                         &text_segment,
                                         0.0,
@@ -97,14 +121,22 @@ impl EditorRenderer {
                                             ..Default::default()
                                         }
                                     );
-                                    idx += total_len;
-                                    continue;
+                                    idx = ep + 1;
+                                    matched = true;
                                 }
                             }
                         }
                     }
 
+                    if matched {
+                        continue;
+                    }
+
                     let mut run = String::new();
+                    // Always consume at least one character to ensure progress and prevent infinite loops
+                    run.push(line_chars[idx]);
+                    idx += 1;
+
                     while idx < line_chars.len() {
                         let c = line_chars[idx];
                         if c == '[' {
