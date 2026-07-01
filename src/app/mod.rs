@@ -13,6 +13,13 @@ impl DoctorMarkdownApp {
     pub fn new(cc: &eframe::CreationContext<'_>, root_path: Option<PathBuf>) -> Self {
         let mut style = (*cc.egui_ctx.style()).clone();
         style.visuals.dark_mode = true;
+        style.visuals.widgets.noninteractive.rounding = egui::Rounding::ZERO;
+        style.visuals.widgets.inactive.rounding = egui::Rounding::ZERO;
+        style.visuals.widgets.hovered.rounding = egui::Rounding::ZERO;
+        style.visuals.widgets.active.rounding = egui::Rounding::ZERO;
+        style.visuals.widgets.open.rounding = egui::Rounding::ZERO;
+        style.visuals.window_rounding = egui::Rounding::ZERO;
+        style.visuals.menu_rounding = egui::Rounding::ZERO;
         cc.egui_ctx.set_style(style);
 
         Self {
