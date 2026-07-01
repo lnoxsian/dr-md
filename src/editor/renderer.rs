@@ -67,6 +67,7 @@ impl EditorRenderer {
 
                                     let edit_res = ui.add(
                                         egui::TextEdit::multiline(&mut self.content_buffer)
+                                            .id(egui::Id::new("editor_text_edit"))
                                             .font(FontId::monospace(font_size))
                                             .frame(false)
                                             .layouter(&mut layouter)
@@ -123,6 +124,7 @@ impl EditorRenderer {
                         .show(ui, |ui| {
                             let res = ui.add(
                                 egui::TextEdit::multiline(&mut self.content_buffer)
+                                    .id(egui::Id::new("editor_text_edit"))
                                     .font(FontId::monospace(font_size))
                                     .frame(false)
                                     .layouter(&mut layouter)

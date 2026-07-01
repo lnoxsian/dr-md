@@ -154,6 +154,81 @@ impl eframe::App for DoctorMarkdownApp {
                         }
                     });
 
+                    ui.menu_button("Edit", |ui| {
+                        if ui.button("Cut (Ctrl+X)").clicked() {
+                            if let Some(mut state) = egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit")) {
+                                if let Some(range) = state.cursor.char_range() {
+                                    let start = range.primary.index.min(range.secondary.index);
+                                    let end = range.primary.index.max(range.secondary.index);
+                                    let sorted = start..end;
+                                    if !sorted.is_empty() {
+                                        let text_to_copy = self.state.editor.buffer.rope.slice(sorted.clone()).to_string();
+                                        ctx.copy_text(text_to_copy);
+
+                                        self.state.editor.buffer.remove(sorted.start, sorted.end);
+                                        self.state.editor.cursor.char_idx = sorted.start;
+                                        self.state.editor.selection.clear(sorted.start);
+                                        self.state.editor.is_dirty = true;
+
+                                        self.state.editor_renderer.content_buffer = self.state.editor.buffer.to_string();
+
+                                        let cursor = egui::text::CCursor::new(sorted.start);
+                                        state.cursor.set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                                        state.store(ctx, egui::Id::new("editor_text_edit"));
+                                    }
+                                }
+                            }
+                            ui.close_menu();
+                        }
+                        if ui.button("Copy (Ctrl+C)").clicked() {
+                            if let Some(state) = egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit")) {
+                                if let Some(range) = state.cursor.char_range() {
+                                    let start = range.primary.index.min(range.secondary.index);
+                                    let end = range.primary.index.max(range.secondary.index);
+                                    let sorted = start..end;
+                                    if !sorted.is_empty() {
+                                        let text_to_copy = self.state.editor.buffer.rope.slice(sorted).to_string();
+                                        ctx.copy_text(text_to_copy);
+                                    }
+                                }
+                            }
+                            ui.close_menu();
+                        }
+                        if ui.button("Paste (Ctrl+V)").clicked() {
+                            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                let paste_text = clipboard.get_text().unwrap_or_default();
+                                if !paste_text.is_empty() {
+                                    if let Some(mut state) = egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit")) {
+                                        let range = state.cursor.char_range().unwrap_or_else(|| {
+                                            let len = self.state.editor.buffer.len_chars();
+                                            let cursor = egui::text::CCursor::new(len);
+                                            egui::text::CCursorRange::two(cursor, cursor)
+                                        });
+                                        let start = range.primary.index.min(range.secondary.index);
+                                        let end = range.primary.index.max(range.secondary.index);
+                                        let sorted = start..end;
+
+                                        if !sorted.is_empty() {
+                                            self.state.editor.buffer.remove(sorted.start, sorted.end);
+                                        }
+
+                                        self.state.editor.buffer.insert(sorted.start, &paste_text);
+                                        self.state.editor.cursor.char_idx = sorted.start + paste_text.chars().count();
+                                        self.state.editor.selection.clear(self.state.editor.cursor.char_idx);
+                                        self.state.editor.is_dirty = true;
+
+                                        self.state.editor_renderer.content_buffer = self.state.editor.buffer.to_string();
+
+                                        let cursor = egui::text::CCursor::new(self.state.editor.cursor.char_idx);
+                                        state.cursor.set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                                        state.store(ctx, egui::Id::new("editor_text_edit"));
+                                    }
+                                }
+                            }
+                            ui.close_menu();
+                        }
+                    });
+
                     ui.menu_button("View", |ui| {
                         if ui.selectable_label(self.state.view_mode == ViewMode::Editor, "Editor Mode (Ctrl+1)").clicked() {
                             self.state.view_mode = ViewMode::Editor;
@@ -191,6 +266,12 @@ impl eframe::App for DoctorMarkdownApp {
                         if ui.checkbox(&mut self.state.config.autosave, "Autosave").changed() {
                             let _ = self.state.config.save();
                         }
+                        ui.separator();
+                        ui.menu_button("Split View Options", |ui| {
+                            if ui.checkbox(&mut self.state.config.scroll_sync, "Sync Scrolling").changed() {
+                                let _ = self.state.config.save();
+                            }
+                        });
                     });
                 });
             });
@@ -260,6 +341,45 @@ impl eframe::App for DoctorMarkdownApp {
                     ViewMode::Split => {
                         let mut content = self.state.editor.buffer.to_string();
                         let old_content = content.clone();
+
+                        let editor_id = egui::Id::new("editor_scroll");
+                        let preview_id = egui::Id::new("markdown_preview_scroll");
+
+                        let mut editor_y = None;
+                        let mut preview_y = None;
+
+                        ui.ctx().data_mut(|d| {
+                            if let Some(state) = d.get_persisted::<egui::containers::scroll_area::State>(editor_id) {
+                                editor_y = Some(state.offset.y);
+                            }
+                            if let Some(state) = d.get_persisted::<egui::containers::scroll_area::State>(preview_id) {
+                                preview_y = Some(state.offset.y);
+                            }
+                        });
+
+                        if self.state.config.scroll_sync {
+                            if let (Some(ey), Some(py)) = (editor_y, preview_y) {
+                                let last = self.state.last_scroll_y;
+                                if (ey - last).abs() > 0.01 {
+                                    self.state.last_scroll_y = ey;
+                                    ui.ctx().data_mut(|d| {
+                                        if let Some(mut state) = d.get_persisted::<egui::containers::scroll_area::State>(preview_id) {
+                                            state.offset.y = ey;
+                                            d.insert_persisted(preview_id, state);
+                                        }
+                                    });
+                                } else if (py - last).abs() > 0.01 {
+                                    self.state.last_scroll_y = py;
+                                    ui.ctx().data_mut(|d| {
+                                        if let Some(mut state) = d.get_persisted::<egui::containers::scroll_area::State>(editor_id) {
+                                            state.offset.y = py;
+                                            d.insert_persisted(editor_id, state);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+
                         ui.columns(2, |columns| {
                             self.state.editor_renderer.show(
                                 &mut columns[0],
