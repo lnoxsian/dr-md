@@ -43,21 +43,15 @@ impl EditorRenderer {
                                     job.wrap.max_width = wrap_width;
                                     let galley = ui.fonts(|f| f.layout_job(job));
 
-                                    let mut line_starts = vec![0];
-                                    for (idx, c) in text.char_indices() {
-                                        if c == '\n' {
-                                            line_starts.push(idx + 1);
-                                        }
-                                    }
-
                                     let mut positions = Vec::new();
-                                    let mut current_char_idx = 0;
+                                    let mut line_idx = 1;
+                                    let mut next_row_is_new_line = true;
                                     for row in &galley.rows {
-                                        if let Ok(line_idx) = line_starts.binary_search(&current_char_idx) {
-                                            positions.push((line_idx + 1, row.rect.min.y));
+                                        if next_row_is_new_line {
+                                            positions.push((line_idx, row.rect.min.y));
+                                            line_idx += 1;
                                         }
-                                        let row_char_count = row.glyphs.len() + if row.ends_with_newline { 1 } else { 0 };
-                                        current_char_idx += row_char_count;
+                                        next_row_is_new_line = row.ends_with_newline;
                                     }
                                     line_positions = positions;
 
