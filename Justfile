@@ -35,3 +35,15 @@ fmt:
 # Run linter
 clippy:
     cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+# Build the application container using Docker
+docker-build:
+    docker build -t dr-md .
+
+# Export the compiled release binary from the Docker container to target/docker/dr-md
+docker-export:
+    docker build --target builder -t dr-md-builder .
+    mkdir -p target/docker
+    docker run --rm --entrypoint cat dr-md-builder /app/target/release/dr-md > target/docker/dr-md
+    chmod +x target/docker/dr-md
+
