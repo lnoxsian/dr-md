@@ -149,8 +149,10 @@ impl eframe::App for DoctorMarkdownApp {
                     });
 
                     ui.menu_button("Settings", |ui| {
-                        ui.label("Font Size:");
+                        ui.label("Editor Font Size:");
                         ui.add(egui::Slider::new(&mut self.state.config.font_size, 10.0..=30.0));
+                        ui.label("Preview Font Size:");
+                        ui.add(egui::Slider::new(&mut self.state.config.preview_font_size, 10.0..=30.0));
                         ui.separator();
                         ui.checkbox(&mut self.state.config.line_numbers, "Show Line Numbers");
                         ui.checkbox(&mut self.state.config.vim_mode, "Vim Mode (WIP)");
@@ -209,7 +211,7 @@ impl eframe::App for DoctorMarkdownApp {
                     }
                     ViewMode::Preview => {
                         let content = self.state.editor.buffer.to_string();
-                        self.state.preview.show(ui, &content);
+                        self.state.preview.show(ui, &content, self.state.config.preview_font_size);
                     }
                     ViewMode::Split => {
                         let width = ui.available_width() / 2.0;
@@ -232,7 +234,7 @@ impl eframe::App for DoctorMarkdownApp {
                                 egui::Layout::top_down(egui::Align::Min),
                                 |ui| {
                                     let content = self.state.editor.buffer.to_string();
-                                    self.state.preview.show(ui, &content);
+                                    self.state.preview.show(ui, &content, self.state.config.preview_font_size);
                                 }
                             );
                         });

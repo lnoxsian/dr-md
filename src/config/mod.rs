@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(default)]
 pub struct AppConfig {
     pub theme: String,
     pub font_size: f32,
+    pub preview_font_size: f32,
     pub line_numbers: bool,
     pub vim_mode: bool,
     pub autosave: bool,
@@ -15,6 +17,7 @@ impl Default for AppConfig {
         Self {
             theme: "dark".to_string(),
             font_size: 14.0,
+            preview_font_size: 14.0,
             line_numbers: true,
             vim_mode: false,
             autosave: true,
