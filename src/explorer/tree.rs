@@ -48,7 +48,7 @@ impl FileTree {
                 let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
 
                 if is_dir {
-                    egui::CollapsingHeader::new(format!("📁 {}", file_name))
+                    egui::CollapsingHeader::new(file_name)
                         .id_source(&entry_path)
                         .show(ui, |ui| {
                             self.render_dir(ui, &entry_path, clicked_file, active_file);
@@ -58,7 +58,7 @@ impl FileTree {
                     let is_md = entry_path.extension().map(|e| e == "md" || e == "markdown").unwrap_or(false);
                     if is_md {
                         let is_active = Some(&entry_path) == active_file.as_ref();
-                        let label = ui.selectable_label(is_active, format!("📝 {}", file_name));
+                        let label = ui.selectable_label(is_active, file_name);
                         if label.clicked() {
                             *clicked_file = Some(entry_path);
                         }

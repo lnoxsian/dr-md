@@ -173,24 +173,12 @@ impl eframe::App for DoctorMarkdownApp {
                     });
 
                     ui.menu_button("Settings", |ui| {
-                        ui.label("Editor Font Size:");
+                        ui.label("Font Size:");
                         ui.add(egui::Slider::new(&mut self.state.config.font_size, 10.0..=30.0));
-                        ui.label("Preview Font Size:");
-                        ui.add(egui::Slider::new(&mut self.state.config.preview_font_size, 10.0..=30.0));
                         ui.separator();
                         ui.checkbox(&mut self.state.config.line_numbers, "Show Line Numbers");
                         ui.checkbox(&mut self.state.config.autosave, "Autosave");
                     });
-
-                    ui.separator();
-
-                    if let Some(ref path) = self.state.editor.active_path {
-                        let name = path.file_name().unwrap_or_default().to_string_lossy();
-                        let dirty = if self.state.editor.is_dirty { "*" } else { "" };
-                        ui.label(format!("{}{}", name, dirty));
-                    } else {
-                        ui.label("No file open");
-                    }
                 });
             });
         }
@@ -200,24 +188,38 @@ impl eframe::App for DoctorMarkdownApp {
                 .resizable(true)
                 .default_width(200.0)
                 .show(ctx, |ui| {
-                    ui.heading("Explorer");
-                    ui.separator();
-
-                    if let Some(ref root) = self.state.vault.root_path {
-                        let mut active_file = self.state.vault.active_file.clone();
-                        if let Some(clicked) = self.state.explorer.show(ui, root, &mut active_file) {
-                            commands::execute_open_file(&mut self.state, clicked);
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                        ui.add_space(4.0);
+                        if let Some(ref path) = self.state.editor.active_path {
+                            let name = path.file_name().unwrap_or_default().to_string_lossy();
+                            let dirty = if self.state.editor.is_dirty { "*" } else { "" };
+                            ui.label(format!("{}{}", name, dirty));
+                        } else {
+                            ui.label("No file open");
                         }
-                    } else {
-                        ui.vertical_centered(|ui| {
-                            ui.label("No folder opened");
-                            if ui.button("Open Folder").clicked() {
-                                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                                    self.state.vault.set_root(path);
+                        ui.add_space(4.0);
+                        ui.separator();
+
+                        ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                            egui::ScrollArea::vertical().show(ui, |ui| {
+                                if let Some(ref root) = self.state.vault.root_path {
+                                    let mut active_file = self.state.vault.active_file.clone();
+                                    if let Some(clicked) = self.state.explorer.show(ui, root, &mut active_file) {
+                                        commands::execute_open_file(&mut self.state, clicked);
+                                    }
+                                } else {
+                                    ui.vertical_centered(|ui| {
+                                        ui.label("No folder opened");
+                                        if ui.button("Open Folder").clicked() {
+                                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                                self.state.vault.set_root(path);
+                                            }
+                                        }
+                                    });
                                 }
-                            }
+                            });
                         });
-                    }
+                    });
                 });
         }
 
@@ -235,7 +237,7 @@ impl eframe::App for DoctorMarkdownApp {
                     ViewMode::Preview => {
                         let mut content = self.state.editor.buffer.to_string();
                         let old_content = content.clone();
-                        self.state.preview.show(ui, &mut content, self.state.config.preview_font_size);
+                        self.state.preview.show(ui, &mut content, self.state.config.font_size);
                         if content != old_content {
                             self.state.editor.set_text(&content);
                         }
@@ -250,7 +252,7 @@ impl eframe::App for DoctorMarkdownApp {
                                 self.state.config.font_size,
                                 self.state.config.line_numbers
                             );
-                            self.state.preview.show(&mut columns[1], &mut content, self.state.config.preview_font_size);
+                            self.state.preview.show(&mut columns[1], &mut content, self.state.config.font_size);
                         });
                         if content != old_content {
                             self.state.editor.set_text(&content);

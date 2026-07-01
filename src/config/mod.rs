@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub struct AppConfig {
     pub theme: String,
     pub font_size: f32,
-    pub preview_font_size: f32,
     pub line_numbers: bool,
     pub autosave: bool,
     pub tab_width: usize,
@@ -16,7 +15,6 @@ impl Default for AppConfig {
         Self {
             theme: "dark".to_string(),
             font_size: 14.0,
-            preview_font_size: 14.0,
             line_numbers: true,
             autosave: true,
             tab_width: 4,
