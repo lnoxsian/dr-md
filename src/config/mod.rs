@@ -8,7 +8,6 @@ pub struct AppConfig {
     pub line_numbers: bool,
     pub autosave: bool,
     pub tab_width: usize,
-    pub scroll_sync: bool,
 }
 
 impl Default for AppConfig {
@@ -19,7 +18,6 @@ impl Default for AppConfig {
             line_numbers: true,
             autosave: true,
             tab_width: 4,
-            scroll_sync: true,
         }
     }
 }

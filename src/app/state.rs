@@ -22,7 +22,6 @@ pub struct AppState {
     pub view_mode: ViewMode,
     pub explorer_visible: bool,
     pub focus_mode: bool,
-    pub last_scroll_y: f32,
 }
 
 impl AppState {
@@ -38,7 +37,6 @@ impl AppState {
             view_mode: ViewMode::Split,
             explorer_visible: true,
             focus_mode: false,
-            last_scroll_y: 0.0,
         }
     }
 }
