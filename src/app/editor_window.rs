@@ -80,9 +80,9 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
 
                         // Paint separator line
                         let color = if sep_response.dragged() {
-                            ui.visuals().widgets.active.bg_fill
+                            ui.visuals().selection.bg_fill
                         } else if sep_response.hovered() {
-                            ui.visuals().widgets.hovered.bg_fill
+                            ui.visuals().selection.bg_fill.linear_multiply(0.8)
                         } else {
                             ui.visuals().widgets.noninteractive.bg_stroke.color
                         };
@@ -152,9 +152,9 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
 
                         // Paint separator line
                         let color = if sep_response.dragged() {
-                            ui.visuals().widgets.active.bg_fill
+                            ui.visuals().selection.bg_fill
                         } else if sep_response.hovered() {
-                            ui.visuals().widgets.hovered.bg_fill
+                            ui.visuals().selection.bg_fill.linear_multiply(0.8)
                         } else {
                             ui.visuals().widgets.noninteractive.bg_stroke.color
                         };

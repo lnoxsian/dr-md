@@ -51,7 +51,8 @@ impl EditorRenderer {
                             let (gutter_rect, edit_res) = {
                                 let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
                                     let default_color = ui.style().visuals.text_color();
-                                    let mut job = create_layout_job(text, font_size, default_color);
+                                    let link_color = ui.style().visuals.hyperlink_color;
+                                    let mut job = create_layout_job(text, font_size, default_color, link_color);
                                     job.wrap.max_width = wrap_width.min(text_wrap_width);
                                     let galley = ui.fonts(|f| f.layout_job(job));
 
@@ -133,7 +134,8 @@ impl EditorRenderer {
                             let text_wrap_width = (available_width - 8.0).max(100.0);
                             let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
                                 let default_color = ui.style().visuals.text_color();
-                                let mut job = create_layout_job(text, font_size, default_color);
+                                let link_color = ui.style().visuals.hyperlink_color;
+                                let mut job = create_layout_job(text, font_size, default_color, link_color);
                                 job.wrap.max_width = wrap_width.min(text_wrap_width);
                                 ui.fonts(|f| f.layout_job(job))
                             };
@@ -161,16 +163,26 @@ impl EditorRenderer {
     }
 }
 
-fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJob {
+fn create_layout_job(text: &str, font_size: f32, text_color: Color32, link_color: Color32) -> LayoutJob {
     let mut job = LayoutJob::default();
     let normal_font = FontId::monospace(font_size);
     let heading_font = FontId::monospace(font_size);
 
     let default_color = text_color;
-    let header_color = Color32::from_rgb(240, 140, 60);
-    let link_color = Color32::from_rgb(90, 160, 240);
-    let code_color = Color32::from_rgb(140, 220, 140);
-    let blockquote_color = Color32::from_rgb(140, 140, 140);
+    let header_color = link_color;
+
+    // Check if the theme is light by looking at text color lightness
+    let is_light_theme = text_color.r() < 128;
+    let code_color = if is_light_theme {
+        Color32::from_rgb(0, 120, 0)
+    } else {
+        Color32::from_rgb(140, 220, 140)
+    };
+    let blockquote_color = if is_light_theme {
+        Color32::from_rgb(80, 80, 80)
+    } else {
+        Color32::from_rgb(140, 140, 140)
+    };
 
     let mut in_code_block = false;
     let lines: Vec<&str> = text.split('\n').collect();

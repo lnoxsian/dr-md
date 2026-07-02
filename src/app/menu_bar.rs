@@ -207,12 +207,110 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                 });
 
                 ui.menu_button("Settings", |ui| {
+                    ui.label("Base Theme:");
+                    ui.horizontal(|ui| {
+                        let themes = [
+                            ("dark", egui::Color32::from_rgb(30, 30, 30), "Dark Theme"),
+                            ("light", egui::Color32::from_rgb(220, 220, 220), "Light Theme"),
+                        ];
+
+                        for &(theme_id, color, name) in &themes {
+                            let is_selected = state.config.theme == theme_id;
+
+                            let (rect, response) = ui.allocate_exact_size(
+                                egui::vec2(16.0, 16.0),
+                                egui::Sense::click(),
+                            );
+
+                            let response = response.on_hover_text(name);
+
+                            let painter = ui.painter();
+                            let rounding = egui::Rounding::same(8.0); // Circular
+
+                            let fill = if response.hovered() {
+                                color.linear_multiply(0.8)
+                            } else {
+                                color
+                            };
+
+                            painter.rect_filled(rect, rounding, fill);
+
+                            if is_selected {
+                                painter.rect_stroke(
+                                    rect.expand(2.0),
+                                    egui::Rounding::same(10.0),
+                                    egui::Stroke::new(2.0, ui.visuals().text_color()),
+                                );
+                            } else if response.hovered() {
+                                painter.rect_stroke(
+                                    rect.expand(1.0),
+                                    egui::Rounding::same(9.0),
+                                    egui::Stroke::new(1.0, ui.visuals().text_color().linear_multiply(0.5)),
+                                );
+                            }
+
+                            if response.clicked() {
+                                state.config.theme = theme_id.to_string();
+                                let _ = state.config.save();
+                                crate::config::apply_theme(ui.ctx(), &state.config);
+                            }
+                        }
+                    });
+                    ui.separator();
+
+                    ui.label("Theme Accent:");
+                    ui.horizontal(|ui| {
+                        use crate::config::ThemeAccent;
+                        for accent in ThemeAccent::all() {
+                            let color = accent.color();
+                            let is_selected = state.config.theme_accent == *accent;
+
+                            let (rect, response) = ui.allocate_exact_size(
+                                egui::vec2(16.0, 16.0),
+                                egui::Sense::click(),
+                            );
+
+                            let painter = ui.painter();
+                            let rounding = egui::Rounding::same(8.0); // Circular
+
+                            let fill = if response.hovered() {
+                                color.linear_multiply(0.8)
+                            } else {
+                                color
+                            };
+
+                            painter.rect_filled(rect, rounding, fill);
+
+                            if is_selected {
+                                painter.rect_stroke(
+                                    rect.expand(2.0),
+                                    egui::Rounding::same(10.0),
+                                    egui::Stroke::new(2.0, ui.visuals().text_color()),
+                                );
+                            } else if response.hovered() {
+                                painter.rect_stroke(
+                                    rect.expand(1.0),
+                                    egui::Rounding::same(9.0),
+                                    egui::Stroke::new(1.0, ui.visuals().text_color().linear_multiply(0.5)),
+                                );
+                            }
+
+                            if response.clicked() {
+                                state.config.theme_accent = *accent;
+                                let _ = state.config.save();
+                                crate::config::apply_theme(ui.ctx(), &state.config);
+                            }
+                        }
+                    });
+                    ui.separator();
+
                     ui.label("Font Size:");
                     if ui
                         .add(egui::Slider::new(&mut state.config.font_size, 10.0..=30.0))
                         .changed()
                     {
                         let _ = state.config.save();
+                        crate::config::apply_theme(ui.ctx(), &state.config);
                     }
                     ui.separator();
                     if ui
