@@ -14,7 +14,7 @@ impl MarkdownPreview {
     pub fn show(&mut self, ui: &mut egui::Ui, content: &mut String, font_size: f32) {
         let mut processed = super::parser::preprocess_wiki_links(content);
         let processed_old = processed.clone();
-        
+
         egui::ScrollArea::vertical()
             .id_source("markdown_preview_scroll")
             .auto_shrink([false; 2])
@@ -23,18 +23,29 @@ impl MarkdownPreview {
                     .inner_margin(egui::Margin::symmetric(24.0, 0.0))
                     .show(ui, |ui| {
                         let mut style = ui.style().as_ref().clone();
-                        let body_font = egui::FontId::new(font_size, egui::FontFamily::Proportional);
-                        let heading_font = egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
-                        let monospace_font = egui::FontId::new(font_size, egui::FontFamily::Monospace);
-                        
+                        let body_font =
+                            egui::FontId::new(font_size, egui::FontFamily::Proportional);
+                        let heading_font =
+                            egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
+                        let monospace_font =
+                            egui::FontId::new(font_size, egui::FontFamily::Monospace);
+
                         style.text_styles.insert(egui::TextStyle::Body, body_font);
-                        style.text_styles.insert(egui::TextStyle::Heading, heading_font);
-                        style.text_styles.insert(egui::TextStyle::Monospace, monospace_font);
-                        
+                        style
+                            .text_styles
+                            .insert(egui::TextStyle::Heading, heading_font);
+                        style
+                            .text_styles
+                            .insert(egui::TextStyle::Monospace, monospace_font);
+
                         ui.set_style(style);
 
-                        CommonMarkViewer::new("markdown_viewer").show_mut(ui, &mut self.cache, &mut processed);
-                        
+                        CommonMarkViewer::new("markdown_viewer").show_mut(
+                            ui,
+                            &mut self.cache,
+                            &mut processed,
+                        );
+
                         // Add bottom padding inside scroll viewport
                         ui.add_space(100.0);
                     });
@@ -52,14 +63,22 @@ impl MarkdownPreview {
                         let old_trimmed = old_lines[i].trim_start();
                         let new_trimmed = new_lines[i].trim_start();
 
-                        let is_toggle = (old_trimmed.starts_with("- [ ]") && new_trimmed.starts_with("- [x]"))
-                            || (old_trimmed.starts_with("- [x]") && new_trimmed.starts_with("- [ ]"))
-                            || (old_trimmed.starts_with("* [ ]") && new_trimmed.starts_with("* [x]"))
-                            || (old_trimmed.starts_with("* [x]") && new_trimmed.starts_with("* [ ]"));
+                        let is_toggle = (old_trimmed.starts_with("- [ ]")
+                            && new_trimmed.starts_with("- [x]"))
+                            || (old_trimmed.starts_with("- [x]")
+                                && new_trimmed.starts_with("- [ ]"))
+                            || (old_trimmed.starts_with("* [ ]")
+                                && new_trimmed.starts_with("* [x]"))
+                            || (old_trimmed.starts_with("* [x]")
+                                && new_trimmed.starts_with("* [ ]"));
 
                         if is_toggle {
                             if let Some(pos) = orig_lines[i].find("- [") {
-                                let current_char = orig_lines[i].as_bytes().get(pos + 3).copied().unwrap_or(b' ');
+                                let current_char = orig_lines[i]
+                                    .as_bytes()
+                                    .get(pos + 3)
+                                    .copied()
+                                    .unwrap_or(b' ');
                                 let new_char = if current_char == b'x' { ' ' } else { 'x' };
                                 let mut orig_chars: Vec<char> = orig_lines[i].chars().collect();
                                 let mut char_pos = 0;
@@ -74,7 +93,11 @@ impl MarkdownPreview {
                                     orig_lines[i] = orig_chars.into_iter().collect();
                                 }
                             } else if let Some(pos) = orig_lines[i].find("* [") {
-                                let current_char = orig_lines[i].as_bytes().get(pos + 3).copied().unwrap_or(b' ');
+                                let current_char = orig_lines[i]
+                                    .as_bytes()
+                                    .get(pos + 3)
+                                    .copied()
+                                    .unwrap_or(b' ');
                                 let new_char = if current_char == b'x' { ' ' } else { 'x' };
                                 let mut orig_chars: Vec<char> = orig_lines[i].chars().collect();
                                 let mut char_pos = 0;

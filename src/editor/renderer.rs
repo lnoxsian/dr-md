@@ -1,6 +1,6 @@
 use super::Editor;
 use egui::text::LayoutJob;
-use egui::{Color32, TextFormat, FontId};
+use egui::{Color32, FontId, TextFormat};
 
 pub struct EditorRenderer {
     pub content_buffer: String,
@@ -23,7 +23,13 @@ impl EditorRenderer {
         }
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, editor: &mut Editor, font_size: f32, line_numbers: bool) {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        editor: &mut Editor,
+        font_size: f32,
+        line_numbers: bool,
+    ) {
         self.sync_from_editor(editor);
 
         if line_numbers {
@@ -39,7 +45,8 @@ impl EditorRenderer {
                             let available_width = ui.available_width();
                             let gutter_width = 30.0;
                             let spacing = ui.spacing().item_spacing.x;
-                            let text_wrap_width = (available_width - gutter_width - spacing - 8.0).max(100.0);
+                            let text_wrap_width =
+                                (available_width - gutter_width - spacing - 8.0).max(100.0);
 
                             let (gutter_rect, edit_res) = {
                                 let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
@@ -67,7 +74,7 @@ impl EditorRenderer {
                                     let gutter_width = 30.0;
                                     let (gutter_rect, _) = ui.allocate_at_least(
                                         egui::vec2(gutter_width, ui.available_height()),
-                                        egui::Sense::hover()
+                                        egui::Sense::hover(),
                                     );
 
                                     let edit_res = ui.add(
@@ -76,11 +83,12 @@ impl EditorRenderer {
                                             .font(FontId::monospace(font_size))
                                             .frame(false)
                                             .layouter(&mut layouter)
-                                            .desired_width(f32::INFINITY)
+                                            .desired_width(f32::INFINITY),
                                     );
 
                                     (gutter_rect, edit_res)
-                                }).inner
+                                })
+                                .inner
                             };
 
                             // Paint line numbers onto the allocated gutter_rect
@@ -91,14 +99,14 @@ impl EditorRenderer {
                             for (line_num, y_offset) in &line_positions {
                                 let text_pos = egui::pos2(
                                     gutter_rect.max.x - 5.0,
-                                    edit_res.rect.min.y + y_offset
+                                    edit_res.rect.min.y + y_offset,
                                 );
                                 painter.text(
                                     text_pos,
                                     egui::Align2::RIGHT_TOP,
                                     line_num.to_string(),
                                     font.clone(),
-                                    text_color
+                                    text_color,
                                 );
                             }
 
@@ -106,9 +114,10 @@ impl EditorRenderer {
                             ui.add_space(100.0);
 
                             edit_res
-                        }).inner
+                        })
+                        .inner
                 });
-            
+
             if output.inner.changed() {
                 self.sync_to_editor(editor);
             }
@@ -135,14 +144,15 @@ impl EditorRenderer {
                                     .font(FontId::monospace(font_size))
                                     .frame(false)
                                     .layouter(&mut layouter)
-                                    .desired_width(f32::INFINITY)
+                                    .desired_width(f32::INFINITY),
                             );
-                            
+
                             // Add bottom padding inside scroll viewport
                             ui.add_space(100.0);
-                            
+
                             res
-                        }).inner
+                        })
+                        .inner
                 });
             if output.inner.changed() {
                 self.sync_to_editor(editor);
@@ -155,7 +165,7 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJ
     let mut job = LayoutJob::default();
     let normal_font = FontId::monospace(font_size);
     let heading_font = FontId::monospace(font_size);
-    
+
     let default_color = text_color;
     let header_color = Color32::from_rgb(240, 140, 60);
     let link_color = Color32::from_rgb(90, 160, 240);
@@ -191,16 +201,17 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJ
             let mut matched = false;
 
             // Check for wiki link: [[path]] or [[path|label]]
-            if idx + 2 < line_chars.len() && line_chars[idx] == '[' && line_chars[idx+1] == '[' {
+            if idx + 2 < line_chars.len() && line_chars[idx] == '[' && line_chars[idx + 1] == '[' {
                 let mut end_pos = None;
                 for j in (idx + 2)..line_chars.len() {
-                    if j + 1 < line_chars.len() && line_chars[j] == ']' && line_chars[j+1] == ']' {
+                    if j + 1 < line_chars.len() && line_chars[j] == ']' && line_chars[j + 1] == ']'
+                    {
                         end_pos = Some(j);
                         break;
                     }
                 }
                 if let Some(j) = end_pos {
-                    let text_segment: String = line_chars[idx..=j+1].iter().collect();
+                    let text_segment: String = line_chars[idx..=j + 1].iter().collect();
                     job.append(
                         &text_segment,
                         0.0,
@@ -209,7 +220,7 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJ
                             color: link_color,
                             underline: egui::Stroke::new(1.0, link_color),
                             ..Default::default()
-                        }
+                        },
                     );
                     idx = j + 2;
                     matched = true;
@@ -226,7 +237,7 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJ
                     }
                 }
                 if let Some(eb) = end_bracket {
-                    if eb + 1 < line_chars.len() && line_chars[eb+1] == '(' {
+                    if eb + 1 < line_chars.len() && line_chars[eb + 1] == '(' {
                         let mut end_paren = None;
                         for j in (eb + 2)..line_chars.len() {
                             if line_chars[j] == ')' {
@@ -244,7 +255,7 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJ
                                     color: link_color,
                                     underline: egui::Stroke::new(1.0, link_color),
                                     ..Default::default()
-                                }
+                                },
                             );
                             idx = ep + 1;
                             matched = true;
@@ -273,11 +284,15 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32) -> LayoutJ
         }
 
         if i < lines.len() - 1 {
-            job.append("\n", 0.0, TextFormat {
-                font_id: normal_font.clone(),
-                color: default_color,
-                ..Default::default()
-            });
+            job.append(
+                "\n",
+                0.0,
+                TextFormat {
+                    font_id: normal_font.clone(),
+                    color: default_color,
+                    ..Default::default()
+                },
+            );
         }
     }
     job

@@ -1,7 +1,7 @@
+use anyhow::Result;
 use ropey::Rope;
 use std::fs;
 use std::path::Path;
-use anyhow::Result;
 
 pub struct EditBuffer {
     pub rope: Rope,
@@ -9,9 +9,7 @@ pub struct EditBuffer {
 
 impl EditBuffer {
     pub fn new() -> Self {
-        Self {
-            rope: Rope::new(),
-        }
+        Self { rope: Rope::new() }
     }
 
     pub fn from_str(text: &str) -> Self {

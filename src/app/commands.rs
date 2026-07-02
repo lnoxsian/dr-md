@@ -33,4 +33,3 @@ pub fn execute_open_folder(state: &mut AppState, path: PathBuf) {
     state.config.last_opened_folder = Some(path.to_string_lossy().to_string());
     let _ = state.config.save();
 }
-

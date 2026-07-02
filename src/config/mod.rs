@@ -34,7 +34,10 @@ impl AppConfig {
         #[cfg(not(target_os = "windows"))]
         {
             directories::BaseDirs::new().map(|base| {
-                base.home_dir().join(".config").join("dr-md").join("config.toml")
+                base.home_dir()
+                    .join(".config")
+                    .join("dr-md")
+                    .join("config.toml")
             })
         }
     }
@@ -76,8 +79,11 @@ mod tests {
     fn test_config_path() {
         let path = AppConfig::get_config_path().unwrap();
         assert!(
-            path.to_string_lossy().ends_with(".config/dr-md/config.toml")
-                || path.to_string_lossy().ends_with(".config\\dr-md\\config.toml")
+            path.to_string_lossy()
+                .ends_with(".config/dr-md/config.toml")
+                || path
+                    .to_string_lossy()
+                    .ends_with(".config\\dr-md\\config.toml")
                 || cfg!(target_os = "windows")
         );
     }

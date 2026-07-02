@@ -1,9 +1,9 @@
-use std::path::PathBuf;
 use crate::config::AppConfig;
-use crate::workspace::Vault;
-use crate::explorer::FileTree;
 use crate::editor::{Editor, renderer::EditorRenderer};
+use crate::explorer::FileTree;
 use crate::markdown::MarkdownPreview;
+use crate::workspace::Vault;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewMode {
@@ -28,9 +28,8 @@ pub struct AppState {
 impl AppState {
     pub fn new(root_path: Option<PathBuf>) -> Self {
         let config = AppConfig::load();
-        let resolved_path = root_path.or_else(|| {
-            config.last_opened_folder.as_ref().map(PathBuf::from)
-        });
+        let resolved_path =
+            root_path.or_else(|| config.last_opened_folder.as_ref().map(PathBuf::from));
         Self {
             config,
             vault: Vault::new(resolved_path),
@@ -45,4 +44,3 @@ impl AppState {
         }
     }
 }
-

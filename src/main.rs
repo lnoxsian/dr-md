@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
-mod config;
-mod keymap;
-mod workspace;
-mod explorer;
-mod editor;
-mod markdown;
 mod app;
+mod config;
+mod editor;
+mod explorer;
+mod keymap;
+mod markdown;
+mod workspace;
 
 use app::DoctorMarkdownApp;
 
@@ -30,4 +30,3 @@ fn main() -> eframe::Result<()> {
         Box::new(|cc| Box::new(DoctorMarkdownApp::new(cc, None))),
     )
 }
-

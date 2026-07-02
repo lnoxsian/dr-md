@@ -1,8 +1,8 @@
 pub mod buffer;
 pub mod cursor;
+pub mod renderer;
 pub mod selection;
 pub mod undo;
-pub mod renderer;
 
 pub use buffer::EditBuffer;
 pub use cursor::Cursor;

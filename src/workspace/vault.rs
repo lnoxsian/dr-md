@@ -1,6 +1,6 @@
-use std::path::PathBuf;
-use std::fs;
 use anyhow::Result;
+use std::fs;
+use std::path::PathBuf;
 
 pub struct Vault {
     pub root_path: Option<PathBuf>,
@@ -21,8 +21,11 @@ impl Vault {
     }
 
     pub fn new_note(&mut self) -> Result<PathBuf> {
-        let root = self.root_path.as_ref().ok_or_else(|| anyhow::anyhow!("No active workspace"))?;
-        
+        let root = self
+            .root_path
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No active workspace"))?;
+
         let mut count = 0;
         let mut note_path = root.join("Untitled.md");
         while note_path.exists() {
@@ -36,13 +39,19 @@ impl Vault {
     }
 
     pub fn read_active(&self) -> Result<String> {
-        let path = self.active_file.as_ref().ok_or_else(|| anyhow::anyhow!("No active file"))?;
+        let path = self
+            .active_file
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No active file"))?;
         let content = fs::read_to_string(path)?;
         Ok(content)
     }
 
     pub fn save_active(&self, content: &str) -> Result<()> {
-        let path = self.active_file.as_ref().ok_or_else(|| anyhow::anyhow!("No active file"))?;
+        let path = self
+            .active_file
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No active file"))?;
         fs::write(path, content)?;
         Ok(())
     }

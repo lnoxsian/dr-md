@@ -1,6 +1,6 @@
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
-use notify::{Watcher, RecommendedWatcher, RecursiveMode, Event};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{Receiver, channel};
 
 pub struct FileWatcher {
     watcher: Option<RecommendedWatcher>,
@@ -12,12 +12,10 @@ impl FileWatcher {
         let (tx, rx) = channel();
         let watcher = notify::recommended_watcher(move |res| {
             let _ = tx.send(res);
-        }).ok();
+        })
+        .ok();
 
-        Self {
-            watcher,
-            rx,
-        }
+        Self { watcher, rx }
     }
 
     pub fn watch(&mut self, path: &Path) -> Result<(), notify::Error> {
