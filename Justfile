@@ -52,5 +52,3 @@ update-version version:
     sed -i 's/^version = "[^"]*"/version = "{{version}}"/' Cargo.toml
     echo "APP_VERSION={{version}}" > VERSION
     echo "RUST_VERSION=$(rustc --version | awk '{print $2}')" >> VERSION
-
-

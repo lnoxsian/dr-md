@@ -61,7 +61,7 @@ impl eframe::App for DoctorMarkdownApp {
                 }
                 ShortcutAction::OpenFolder => {
                     if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                        self.state.vault.set_root(path);
+                        commands::execute_open_folder(&mut self.state, path);
                     }
                 }
                 ShortcutAction::Save => {
@@ -131,7 +131,7 @@ impl eframe::App for DoctorMarkdownApp {
                         }
                         if ui.button("Open Folder (Ctrl+O)").clicked() {
                             if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                                self.state.vault.set_root(path);
+                                commands::execute_open_folder(&mut self.state, path);
                             }
                             ui.close_menu();
                         }
@@ -272,9 +272,22 @@ impl eframe::App for DoctorMarkdownApp {
         }
 
         if self.state.explorer_visible && !self.state.focus_mode {
+            let screen_width = ctx.screen_rect().width();
+            let max_explorer_width = if screen_width < 600.0 {
+                (screen_width * 0.35).max(100.0)
+            } else {
+                300.0
+            };
+            let default_explorer_width = if screen_width < 600.0 {
+                120.0
+            } else {
+                200.0
+            };
+
             egui::SidePanel::left("file_explorer")
                 .resizable(true)
-                .default_width(200.0)
+                .default_width(default_explorer_width)
+                .max_width(max_explorer_width)
                 .show(ctx, |ui| {
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
@@ -300,7 +313,7 @@ impl eframe::App for DoctorMarkdownApp {
                                         ui.label("No folder opened");
                                         if ui.button("Open Folder").clicked() {
                                             if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                                                self.state.vault.set_root(path);
+                                                commands::execute_open_folder(&mut self.state, path);
                                             }
                                         }
                                     });
@@ -336,15 +349,145 @@ impl eframe::App for DoctorMarkdownApp {
                         let mut content = self.state.editor.buffer.to_string();
                         let old_content = content.clone();
 
-                        ui.columns(2, |columns| {
+                        let min_rect = ui.max_rect();
+                        // Allocate the entire space so egui knows we are occupying it
+                        ui.allocate_rect(min_rect, egui::Sense::hover());
+
+                        let available_width = min_rect.width();
+                        let available_height = min_rect.height();
+
+                        if available_width < 600.0 {
+                            // Vertical Split (Top-to-Bottom)
+                            let separator_height = 8.0;
+                            let total_height = available_height - separator_height;
+                            let top_height = (total_height * self.state.split_ratio).max(100.0).min(total_height - 100.0);
+                            let bottom_height = total_height - top_height;
+
+                            // Top Rect
+                            let top_rect = egui::Rect::from_min_size(
+                                min_rect.min,
+                                egui::vec2(available_width, top_height)
+                            );
+
+                            // Separator Rect
+                            let sep_rect = egui::Rect::from_min_size(
+                                egui::pos2(min_rect.min.x, min_rect.min.y + top_height),
+                                egui::vec2(available_width, separator_height)
+                            );
+
+                            // Bottom Rect
+                            let bottom_rect = egui::Rect::from_min_size(
+                                egui::pos2(min_rect.min.x, min_rect.min.y + top_height + separator_height),
+                                egui::vec2(available_width, bottom_height)
+                            );
+
+                            // Top Pane: Editor
+                            let mut top_ui = ui.child_ui(top_rect, egui::Layout::top_down(egui::Align::Min));
+                            top_ui.set_clip_rect(top_rect);
                             self.state.editor_renderer.show(
-                                &mut columns[0],
+                                &mut top_ui,
                                 &mut self.state.editor,
                                 self.state.config.font_size,
                                 self.state.config.line_numbers
                             );
-                            self.state.preview.show(&mut columns[1], &mut content, self.state.config.font_size);
-                        });
+
+                            // Separator / Drag handle
+                            let sep_response = ui.allocate_rect(sep_rect, egui::Sense::drag());
+
+                            // Paint separator line
+                            let color = if sep_response.dragged() {
+                                ui.visuals().widgets.active.bg_fill
+                            } else if sep_response.hovered() {
+                                ui.visuals().widgets.hovered.bg_fill
+                            } else {
+                                ui.visuals().widgets.noninteractive.bg_stroke.color
+                            };
+                            ui.painter().rect_filled(sep_rect, 0.0, color);
+
+                            // Update split_ratio based on drag
+                            if sep_response.dragged() {
+                                if let Some(mouse_pos) = ui.input(|i| i.pointer.latest_pos()) {
+                                    let relative_y = mouse_pos.y - min_rect.top();
+                                    self.state.split_ratio = (relative_y / available_height).clamp(0.1, 0.9);
+                                }
+                            }
+
+                            // Change cursor to vertical resize icon
+                            if sep_response.hovered() || sep_response.dragged() {
+                                ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::ResizeVertical);
+                            }
+
+                            // Bottom Pane: Preview
+                            let mut bottom_ui = ui.child_ui(bottom_rect, egui::Layout::top_down(egui::Align::Min));
+                            bottom_ui.set_clip_rect(bottom_rect);
+                            self.state.preview.show(&mut bottom_ui, &mut content, self.state.config.font_size);
+                        } else {
+                            // Horizontal Split (Side-by-Side)
+                            let separator_width = 8.0;
+                            let total_width = available_width - separator_width;
+                            let left_width = (total_width * self.state.split_ratio).max(100.0).min(total_width - 100.0);
+                            let right_width = total_width - left_width;
+
+                            // Left Rect
+                            let left_rect = egui::Rect::from_min_size(
+                                min_rect.min,
+                                egui::vec2(left_width, available_height)
+                            );
+
+                            // Separator Rect
+                            let sep_rect = egui::Rect::from_min_size(
+                                egui::pos2(min_rect.min.x + left_width, min_rect.min.y),
+                                egui::vec2(separator_width, available_height)
+                            );
+
+                            // Right Rect
+                            let right_rect = egui::Rect::from_min_size(
+                                egui::pos2(min_rect.min.x + left_width + separator_width, min_rect.min.y),
+                                egui::vec2(right_width, available_height)
+                            );
+
+                            // Left Pane: Editor
+                            let mut left_ui = ui.child_ui(left_rect, egui::Layout::top_down(egui::Align::Min));
+                            left_ui.set_clip_rect(left_rect);
+                            self.state.editor_renderer.show(
+                                &mut left_ui,
+                                &mut self.state.editor,
+                                self.state.config.font_size,
+                                self.state.config.line_numbers
+                            );
+
+                            // Separator / Drag handle
+                            let sep_response = ui.allocate_rect(sep_rect, egui::Sense::drag());
+
+                            // Paint separator line
+                            let color = if sep_response.dragged() {
+                                ui.visuals().widgets.active.bg_fill
+                            } else if sep_response.hovered() {
+                                ui.visuals().widgets.hovered.bg_fill
+                            } else {
+                                ui.visuals().widgets.noninteractive.bg_stroke.color
+                            };
+                            ui.painter().rect_filled(sep_rect, 0.0, color);
+
+                            // Update split_ratio based on drag
+                            if sep_response.dragged() {
+                                if let Some(mouse_pos) = ui.input(|i| i.pointer.latest_pos()) {
+                                    let relative_x = mouse_pos.x - min_rect.left();
+                                    self.state.split_ratio = (relative_x / available_width).clamp(0.1, 0.9);
+                                }
+                            }
+
+                            // Change cursor to horizontal resize icon
+                            if sep_response.hovered() || sep_response.dragged() {
+                                ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::ResizeHorizontal);
+                            }
+
+                            // Right Pane: Preview
+                            let mut right_ui = ui.child_ui(right_rect, egui::Layout::top_down(egui::Align::Min));
+                            right_ui.set_clip_rect(right_rect);
+                            self.state.preview.show(&mut right_ui, &mut content, self.state.config.font_size);
+                        }
+
                         if content != old_content {
                             self.state.editor.set_text(&content);
                         }

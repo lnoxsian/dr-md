@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub line_numbers: bool,
     pub autosave: bool,
     pub tab_width: usize,
+    pub last_opened_folder: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -18,6 +19,7 @@ impl Default for AppConfig {
             line_numbers: true,
             autosave: true,
             tab_width: 4,
+            last_opened_folder: None,
         }
     }
 }

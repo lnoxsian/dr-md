@@ -36,11 +36,16 @@ impl EditorRenderer {
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 0.0))
                         .show(ui, |ui| {
+                            let available_width = ui.available_width();
+                            let gutter_width = 30.0;
+                            let spacing = ui.spacing().item_spacing.x;
+                            let text_wrap_width = (available_width - gutter_width - spacing - 8.0).max(100.0);
+
                             let (gutter_rect, edit_res) = {
                                 let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
                                     let default_color = ui.style().visuals.text_color();
                                     let mut job = create_layout_job(text, font_size, default_color);
-                                    job.wrap.max_width = wrap_width;
+                                    job.wrap.max_width = wrap_width.min(text_wrap_width);
                                     let galley = ui.fonts(|f| f.layout_job(job));
 
                                     let mut positions = Vec::new();
@@ -108,13 +113,6 @@ impl EditorRenderer {
                 self.sync_to_editor(editor);
             }
         } else {
-            let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
-                let default_color = ui.style().visuals.text_color();
-                let mut job = create_layout_job(text, font_size, default_color);
-                job.wrap.max_width = wrap_width;
-                ui.fonts(|f| f.layout_job(job))
-            };
-
             let output = egui::ScrollArea::vertical()
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
@@ -122,6 +120,15 @@ impl EditorRenderer {
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 0.0))
                         .show(ui, |ui| {
+                            let available_width = ui.available_width();
+                            let text_wrap_width = (available_width - 8.0).max(100.0);
+                            let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
+                                let default_color = ui.style().visuals.text_color();
+                                let mut job = create_layout_job(text, font_size, default_color);
+                                job.wrap.max_width = wrap_width.min(text_wrap_width);
+                                ui.fonts(|f| f.layout_job(job))
+                            };
+
                             let res = ui.add(
                                 egui::TextEdit::multiline(&mut self.content_buffer)
                                     .id(egui::Id::new("editor_text_edit"))

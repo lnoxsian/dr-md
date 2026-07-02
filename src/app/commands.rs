@@ -27,3 +27,10 @@ pub fn execute_save_as(state: &mut AppState, path: PathBuf) {
         tracing::error!("Failed to save file as: {:?}", e);
     }
 }
+
+pub fn execute_open_folder(state: &mut AppState, path: PathBuf) {
+    state.vault.set_root(path.clone());
+    state.config.last_opened_folder = Some(path.to_string_lossy().to_string());
+    let _ = state.config.save();
+}
+
