@@ -11,9 +11,6 @@ pub enum ShortcutAction {
     // Editing
     Undo,
     Redo,
-    Cut,
-    Copy,
-    Paste,
     SelectAll,
 
     // Navigation

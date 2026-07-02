@@ -1,11 +1,6 @@
 use crate::app::state::AppState;
 use std::path::PathBuf;
 
-pub fn execute_new_note(state: &mut AppState) {
-    if let Ok(path) = state.vault.new_note() {
-        let _ = state.editor.load_file(path);
-    }
-}
 
 pub fn execute_open_file(state: &mut AppState, path: PathBuf) {
     state.vault.active_file = Some(path.clone());

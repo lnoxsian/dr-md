@@ -270,6 +270,8 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 egui::Sense::click(),
                             );
 
+                            let response = response.on_hover_text(accent.name());
+
                             let painter = ui.painter();
                             let rounding = egui::Rounding::same(8.0); // Circular
 

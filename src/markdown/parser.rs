@@ -1,29 +1,3 @@
-pub fn extract_wiki_links(content: &str) -> Vec<String> {
-    let mut links = Vec::new();
-    let mut chars = content.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '[' && chars.peek() == Some(&'[') {
-            chars.next(); // consume second '['
-            let mut link = String::new();
-            while let Some(&nc) = chars.peek() {
-                if nc == ']' {
-                    chars.next();
-                    if chars.peek() == Some(&']') {
-                        chars.next(); // consume second ']'
-                        links.push(link);
-                        break;
-                    } else {
-                        link.push(']');
-                    }
-                } else {
-                    link.push(chars.next().unwrap());
-                }
-            }
-        }
-    }
-    links
-}
-
 pub fn preprocess_wiki_links(content: &str) -> String {
     let mut result = String::new();
     let mut chars = content.chars().peekable();
@@ -85,14 +59,4 @@ mod tests {
         assert_eq!(preprocess_wiki_links("hello [ world"), "hello [ world");
     }
 
-    #[test]
-    fn test_extract_wiki_links() {
-        assert_eq!(extract_wiki_links("[[hello]]"), vec!["hello".to_string()]);
-        assert_eq!(
-            extract_wiki_links("[[hello|label]]"),
-            vec!["hello|label".to_string()]
-        );
-        let empty: Vec<String> = vec![];
-        assert_eq!(extract_wiki_links("[[hello"), empty);
-    }
 }

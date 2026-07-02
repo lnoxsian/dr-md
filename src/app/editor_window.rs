@@ -174,7 +174,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
             }
         } else {
             ui.centered_and_justified(|ui| {
-                ui.label("Welcome to dr.md (Doctor Markdown)\n\nPress Ctrl+N to create a new note\nor Ctrl+O to open a workspace folder.");
+                ui.label("Welcome to Doctor. Markdown\n\nPress Ctrl+N to create a new note\nPress Ctrl+Shift+N to create a new folder\nor Ctrl+O to open a workspace folder.");
             });
         }
     });
