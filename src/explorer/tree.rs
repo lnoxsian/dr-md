@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -10,8 +11,8 @@ pub enum CreatingType {
 
 #[derive(Clone, Debug)]
 pub enum ClipboardAction {
-    Copy(PathBuf),
-    Cut(PathBuf),
+    Copy(Vec<PathBuf>),
+    Cut(Vec<PathBuf>),
 }
 
 pub struct FileTree {
@@ -20,8 +21,12 @@ pub struct FileTree {
     pub focus_input: bool,
     pub clipboard: Option<ClipboardAction>,
     pub selected_folder: Option<PathBuf>,
-    pub dragged_item: Option<PathBuf>,
+    pub selected_items: HashSet<PathBuf>,
+    pub dragged_items: Vec<PathBuf>,
     pub hovered_folder: Option<PathBuf>,
+    pub last_hovered_folder: Option<PathBuf>,
+    pub drag_select_rect: Option<egui::Rect>,
+    pub initial_selected_items: HashSet<PathBuf>,
 }
 
 impl FileTree {
@@ -32,8 +37,12 @@ impl FileTree {
             focus_input: false,
             clipboard: None,
             selected_folder: None,
-            dragged_item: None,
+            selected_items: HashSet::new(),
+            dragged_items: Vec::new(),
             hovered_folder: None,
+            last_hovered_folder: None,
+            drag_select_rect: None,
+            initial_selected_items: HashSet::new(),
         }
     }
 
@@ -59,7 +68,35 @@ impl FileTree {
         root: &Path,
         active_file: &mut Option<PathBuf>,
     ) -> Option<PathBuf> {
-        self.hovered_folder = None;
+        self.last_hovered_folder = self.hovered_folder.take();
+
+        // Handle marquee drag selection input
+        let pointer = ui.input(|i| i.pointer.clone());
+        if pointer.any_down() && !self.focus_input && self.dragged_items.is_empty() {
+            if pointer.is_decidedly_dragging() {
+                if let Some(press_origin) = pointer.press_origin() {
+                    if ui.clip_rect().contains(press_origin) {
+                        let latest_pos = pointer.latest_pos().unwrap_or(press_origin);
+                        let selection_rect = egui::Rect::from_two_pos(press_origin, latest_pos);
+
+                        if self.drag_select_rect.is_none() {
+                            let ctrl_pressed = ui.input(|i| i.modifiers.command);
+                            if ctrl_pressed {
+                                self.initial_selected_items = self.selected_items.clone();
+                            } else {
+                                self.initial_selected_items.clear();
+                            }
+                        }
+
+                        self.drag_select_rect = Some(selection_rect);
+                        self.selected_items = self.initial_selected_items.clone();
+                    }
+                }
+            }
+        } else {
+            self.drag_select_rect = None;
+        }
+
         let mut clicked_file = None;
         self.render_dir(ui, root, &mut clicked_file, active_file);
 
@@ -68,22 +105,30 @@ impl FileTree {
         if remaining_space.y > 10.0 {
             let (_rect, response) = ui.allocate_at_least(remaining_space, egui::Sense::click());
 
+            if response.clicked() {
+                self.selected_items.clear();
+                self.selected_folder = None;
+            }
+
             if response.hovered() {
                 if ui.input(|i| i.pointer.any_released()) {
-                    if let Some(src) = self.dragged_item.take() {
-                        self.move_to_dir(&src, root, active_file);
+                    let dragged = std::mem::take(&mut self.dragged_items);
+                    let valid_dragged: Vec<_> =
+                        dragged.into_iter().filter(|src| src != root).collect();
+                    if !valid_dragged.is_empty() {
+                        self.move_items(&valid_dragged, root, active_file);
                     }
                 }
             }
 
             response.context_menu(|ui| {
-                if ui.button("📝 New File in Root").clicked() {
+                if ui.button("New File").clicked() {
                     self.start_creation(CreatingType::File {
                         parent_dir: root.to_path_buf(),
                     });
                     ui.close_menu();
                 }
-                if ui.button("📁 New Folder in Root").clicked() {
+                if ui.button("New Folder").clicked() {
                     self.start_creation(CreatingType::Folder {
                         parent_dir: root.to_path_buf(),
                     });
@@ -92,7 +137,7 @@ impl FileTree {
                 ui.separator();
                 let can_paste = self.clipboard.is_some();
                 if ui
-                    .add_enabled(can_paste, egui::Button::new("📋 Paste to Root"))
+                    .add_enabled(can_paste, egui::Button::new("Paste"))
                     .clicked()
                 {
                     self.paste_item(root, active_file);
@@ -102,20 +147,36 @@ impl FileTree {
         }
 
         // Handle drag tooltip
-        if let Some(src) = self.dragged_item.clone() {
+        if !self.dragged_items.is_empty() {
             if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
                 egui::Area::new(egui::Id::new("drag_icon"))
                     .order(egui::Order::Tooltip)
                     .fixed_pos(mouse_pos + egui::vec2(10.0, 10.0))
                     .show(ui.ctx(), |ui| {
-                        let name = src.file_name().unwrap_or_default().to_string_lossy();
-                        ui.label(format!("📄 {}", name));
+                        if self.dragged_items.len() == 1 {
+                            let name = self.dragged_items[0]
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy();
+                            ui.label(name);
+                        } else {
+                            ui.label(format!("Moving {} items", self.dragged_items.len()));
+                        }
                     });
             }
 
             if ui.input(|i| i.pointer.any_released()) {
-                self.dragged_item = None;
+                self.dragged_items.clear();
             }
+        }
+
+        // Paint marquee selection rectangle
+        if let Some(rect) = self.drag_select_rect {
+            let fill_color = ui.visuals().selection.bg_fill.linear_multiply(0.15);
+            let stroke_color = ui.visuals().selection.bg_fill;
+            ui.painter()
+                .rect(rect, 0.0, fill_color, egui::Stroke::new(1.0, stroke_color));
+            ui.ctx().request_repaint();
         }
 
         clicked_file
@@ -128,7 +189,6 @@ impl FileTree {
         clicked_file: &mut Option<PathBuf>,
         active_file: &mut Option<PathBuf>,
     ) {
-        // Render inline input if creating under this directory
         if let Some(creating) = &self.creating_type {
             match creating {
                 CreatingType::File { parent_dir } if parent_dir == path => {
@@ -149,14 +209,12 @@ impl FileTree {
                 let entry_path = entry.path();
                 let file_name = entry.file_name().to_string_lossy().into_owned();
 
-                // Skip hidden files/directories
                 if file_name.starts_with('.') {
                     continue;
                 }
 
                 let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
 
-                // Handle Renaming inline input instead of standard rendering
                 let is_renaming = match &self.creating_type {
                     Some(CreatingType::Renaming { path: rename_path }) => {
                         rename_path == &entry_path
@@ -207,7 +265,6 @@ impl FileTree {
     ) {
         let id = ui.make_persistent_id(&entry_path);
 
-        // Force the collapsing header open if we are creating something inside it!
         if let Some(creating) = &self.creating_type {
             match creating {
                 CreatingType::File { parent_dir } | CreatingType::Folder { parent_dir } => {
@@ -219,14 +276,17 @@ impl FileTree {
             }
         }
 
-        let is_selected = self.selected_folder.as_ref() == Some(&entry_path);
-        let display_name = if is_selected {
-            format!("📁 ★ {}", file_name)
+        let is_selected = self.selected_items.contains(&entry_path);
+        let is_hovered_by_drag = !self.dragged_items.is_empty()
+            && self.last_hovered_folder.as_ref() == Some(&entry_path);
+
+        let folder_label = if is_selected || is_hovered_by_drag {
+            egui::RichText::new(&file_name).underline()
         } else {
-            format!("📁 {}", file_name)
+            egui::RichText::new(&file_name)
         };
 
-        let collapsing_response = egui::CollapsingHeader::new(display_name)
+        let collapsing_response = egui::CollapsingHeader::new(folder_label)
             .id_source(&entry_path)
             .show(ui, |ui| {
                 self.render_dir(ui, &entry_path, clicked_file, active_file);
@@ -238,28 +298,64 @@ impl FileTree {
             egui::Sense::click_and_drag(),
         );
 
-        if header_response.drag_started() {
-            self.dragged_item = Some(entry_path.clone());
+        // Check marquee selection intersection
+        if let Some(select_rect) = self.drag_select_rect {
+            if select_rect.intersects(header_response.rect) {
+                self.selected_items.insert(entry_path.clone());
+                self.selected_folder = Some(entry_path.clone());
+            }
         }
 
-        // Check if dragged item is dropped on this folder
+        if header_response.drag_started() {
+            if self.selected_items.contains(&entry_path) {
+                self.dragged_items = self.selected_items.iter().cloned().collect();
+            } else {
+                self.dragged_items = vec![entry_path.clone()];
+            }
+        }
+
         let is_hovered = ui.rect_contains_pointer(header_response.rect);
         if is_hovered {
-            self.hovered_folder = Some(entry_path.clone());
+            if !self.dragged_items.is_empty() {
+                self.hovered_folder = Some(entry_path.clone());
+            }
             if ui.input(|i| i.pointer.any_released()) {
-                if let Some(src) = self.dragged_item.take() {
-                    if src != entry_path && !entry_path.starts_with(&src) {
-                        self.move_to_dir(&src, &entry_path, active_file);
-                    }
+                let dragged = std::mem::take(&mut self.dragged_items);
+                let valid_dragged: Vec<_> = dragged
+                    .into_iter()
+                    .filter(|src| src != &entry_path && !entry_path.starts_with(src))
+                    .collect();
+                if !valid_dragged.is_empty() {
+                    self.move_items(&valid_dragged, &entry_path, active_file);
                 }
             }
         }
 
         if header_response.clicked() {
-            self.selected_folder = Some(entry_path.clone());
+            let ctrl_pressed = ui.input(|i| i.modifiers.command);
+            if ctrl_pressed {
+                if self.selected_items.contains(&entry_path) {
+                    self.selected_items.remove(&entry_path);
+                    if self.selected_folder.as_ref() == Some(&entry_path) {
+                        self.selected_folder = None;
+                    }
+                } else {
+                    self.selected_items.insert(entry_path.clone());
+                    self.selected_folder = Some(entry_path.clone());
+                }
+            } else {
+                self.selected_items.clear();
+                self.selected_items.insert(entry_path.clone());
+                self.selected_folder = Some(entry_path.clone());
+            }
         }
 
         collapsing_response.header_response.context_menu(|ui| {
+            if !self.selected_items.contains(&entry_path) {
+                self.selected_items.clear();
+                self.selected_items.insert(entry_path.clone());
+                self.selected_folder = Some(entry_path.clone());
+            }
             self.show_folder_context_menu(ui, &entry_path, active_file);
         });
     }
@@ -280,31 +376,62 @@ impl FileTree {
             return;
         }
 
-        let is_active = Some(&entry_path) == active_file.as_ref();
+        let is_active = self.selected_items.contains(&entry_path);
         let label = ui.selectable_label(is_active, file_name);
         let label_response = ui.interact(label.rect, label.id, egui::Sense::click_and_drag());
 
-        if label_response.drag_started() {
-            self.dragged_item = Some(entry_path.clone());
+        // Check marquee selection intersection
+        if let Some(select_rect) = self.drag_select_rect {
+            if select_rect.intersects(label_response.rect) {
+                self.selected_items.insert(entry_path.clone());
+            }
         }
 
-        // Check if dragged item is dropped on this file's parent folder
+        if label_response.drag_started() {
+            if self.selected_items.contains(&entry_path) {
+                self.dragged_items = self.selected_items.iter().cloned().collect();
+            } else {
+                self.dragged_items = vec![entry_path.clone()];
+            }
+        }
+
         let is_hovered = ui.rect_contains_pointer(label_response.rect);
         if is_hovered && ui.input(|i| i.pointer.any_released()) {
-            if let Some(src) = self.dragged_item.take() {
-                if let Some(parent) = entry_path.parent() {
-                    if src != parent && !parent.starts_with(&src) {
-                        self.move_to_dir(&src, parent, active_file);
-                    }
+            let dragged = std::mem::take(&mut self.dragged_items);
+            if let Some(parent) = entry_path.parent() {
+                let valid_dragged: Vec<_> = dragged
+                    .into_iter()
+                    .filter(|src| src != parent && !parent.starts_with(src))
+                    .collect();
+                if !valid_dragged.is_empty() {
+                    self.move_items(&valid_dragged, parent, active_file);
                 }
             }
         }
 
         if label_response.clicked() {
-            *clicked_file = Some(entry_path.clone());
+            let ctrl_pressed = ui.input(|i| i.modifiers.command);
+            if ctrl_pressed {
+                if self.selected_items.contains(&entry_path) {
+                    self.selected_items.remove(&entry_path);
+                } else {
+                    self.selected_items.insert(entry_path.clone());
+                    *clicked_file = Some(entry_path.clone());
+                }
+            } else {
+                self.selected_items.clear();
+                self.selected_items.insert(entry_path.clone());
+                self.selected_folder = None;
+                *clicked_file = Some(entry_path.clone());
+            }
         }
 
         label.context_menu(|ui| {
+            if !self.selected_items.contains(&entry_path) {
+                self.selected_items.clear();
+                self.selected_items.insert(entry_path.clone());
+                self.selected_folder = None;
+            }
             self.show_file_context_menu(ui, &entry_path, active_file);
         });
     }
@@ -315,42 +442,72 @@ impl FileTree {
         entry_path: &Path,
         active_file: &mut Option<PathBuf>,
     ) {
-        if ui.button("📝 New File").clicked() {
-            self.start_creation(CreatingType::File {
-                parent_dir: entry_path.to_path_buf(),
-            });
+        let multi_count = self.selected_items.len();
+
+        if multi_count <= 1 {
+            if ui.button("New File").clicked() {
+                self.start_creation(CreatingType::File {
+                    parent_dir: entry_path.to_path_buf(),
+                });
+                ui.close_menu();
+            }
+            if ui.button("New Folder").clicked() {
+                self.start_creation(CreatingType::Folder {
+                    parent_dir: entry_path.to_path_buf(),
+                });
+                ui.close_menu();
+            }
+            ui.separator();
+            if ui.button("Rename").clicked() {
+                self.start_rename(entry_path.to_path_buf());
+                ui.close_menu();
+            }
+        }
+
+        let cut_label = if multi_count > 1 {
+            format!("Cut {} items", multi_count)
+        } else {
+            "Cut".to_string()
+        };
+        if ui.button(cut_label).clicked() {
+            self.clipboard = Some(ClipboardAction::Cut(
+                self.selected_items.iter().cloned().collect(),
+            ));
             ui.close_menu();
         }
-        if ui.button("📁 New Folder").clicked() {
-            self.start_creation(CreatingType::Folder {
-                parent_dir: entry_path.to_path_buf(),
-            });
+
+        let copy_label = if multi_count > 1 {
+            format!("Copy {} items", multi_count)
+        } else {
+            "Copy".to_string()
+        };
+        if ui.button(copy_label).clicked() {
+            self.clipboard = Some(ClipboardAction::Copy(
+                self.selected_items.iter().cloned().collect(),
+            ));
             ui.close_menu();
         }
-        ui.separator();
-        if ui.button("✏ Rename").clicked() {
-            self.start_rename(entry_path.to_path_buf());
-            ui.close_menu();
-        }
-        if ui.button("✂️ Cut (Move)").clicked() {
-            self.clipboard = Some(ClipboardAction::Cut(entry_path.to_path_buf()));
-            ui.close_menu();
-        }
-        if ui.button("📋 Copy").clicked() {
-            self.clipboard = Some(ClipboardAction::Copy(entry_path.to_path_buf()));
-            ui.close_menu();
-        }
+
         let can_paste = self.clipboard.is_some();
         if ui
-            .add_enabled(can_paste, egui::Button::new("📋 Paste"))
+            .add_enabled(can_paste, egui::Button::new("Paste"))
             .clicked()
         {
             self.paste_item(entry_path, active_file);
             ui.close_menu();
         }
         ui.separator();
-        if ui.button("🗑️ Delete").clicked() {
-            self.delete_item(entry_path, active_file);
+
+        let delete_label = if multi_count > 1 {
+            format!("Delete {} items", multi_count)
+        } else {
+            "Delete".to_string()
+        };
+        if ui.button(delete_label).clicked() {
+            let items: Vec<_> = self.selected_items.iter().cloned().collect();
+            self.delete_items(&items, active_file);
+            self.selected_items.clear();
+            self.selected_folder = None;
             ui.close_menu();
         }
     }
@@ -361,21 +518,50 @@ impl FileTree {
         entry_path: &Path,
         active_file: &mut Option<PathBuf>,
     ) {
-        if ui.button("✏ Rename").clicked() {
-            self.start_rename(entry_path.to_path_buf());
+        let multi_count = self.selected_items.len();
+
+        if multi_count <= 1 {
+            if ui.button("Rename").clicked() {
+                self.start_rename(entry_path.to_path_buf());
+                ui.close_menu();
+            }
+        }
+
+        let cut_label = if multi_count > 1 {
+            format!("Cut {} items", multi_count)
+        } else {
+            "Cut".to_string()
+        };
+        if ui.button(cut_label).clicked() {
+            self.clipboard = Some(ClipboardAction::Cut(
+                self.selected_items.iter().cloned().collect(),
+            ));
             ui.close_menu();
         }
-        if ui.button("✂️ Cut (Move)").clicked() {
-            self.clipboard = Some(ClipboardAction::Cut(entry_path.to_path_buf()));
+
+        let copy_label = if multi_count > 1 {
+            format!("Copy {} items", multi_count)
+        } else {
+            "Copy".to_string()
+        };
+        if ui.button(copy_label).clicked() {
+            self.clipboard = Some(ClipboardAction::Copy(
+                self.selected_items.iter().cloned().collect(),
+            ));
             ui.close_menu();
         }
-        if ui.button("📋 Copy").clicked() {
-            self.clipboard = Some(ClipboardAction::Copy(entry_path.to_path_buf()));
-            ui.close_menu();
-        }
+
         ui.separator();
-        if ui.button("🗑️ Delete").clicked() {
-            self.delete_item(entry_path, active_file);
+
+        let delete_label = if multi_count > 1 {
+            format!("Delete {} items", multi_count)
+        } else {
+            "Delete".to_string()
+        };
+        if ui.button(delete_label).clicked() {
+            let items: Vec<_> = self.selected_items.iter().cloned().collect();
+            self.delete_items(&items, active_file);
+            self.selected_items.clear();
             ui.close_menu();
         }
     }
@@ -388,9 +574,6 @@ impl FileTree {
         active_file: &mut Option<PathBuf>,
     ) {
         ui.horizontal(|ui| {
-            let icon = if is_file { "📝" } else { "📁" };
-            ui.label(icon);
-
             let text_edit = egui::TextEdit::singleline(&mut self.name_buffer)
                 .hint_text(if is_file {
                     "file_name.md"
@@ -489,9 +672,22 @@ impl FileTree {
             .extension()
             .map(|e| format!(".{}", e.to_string_lossy()))
             .unwrap_or_default();
+
+        let mut base_stem = file_stem.to_string();
         let mut counter = 1;
+
+        if let Some(pos) = file_stem.rfind('_') {
+            let suffix = &file_stem[pos + 1..];
+            if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(num) = suffix.parse::<usize>() {
+                    base_stem = file_stem[..pos].to_string();
+                    counter = num + 1;
+                }
+            }
+        }
+
         loop {
-            let candidate = parent.join(format!("{}_{}{}", file_stem, counter, extension));
+            let candidate = parent.join(format!("{}_{}{}", base_stem, counter, extension));
             if !candidate.exists() {
                 return candidate;
             }
@@ -499,43 +695,54 @@ impl FileTree {
         }
     }
 
-    pub fn move_to_dir(&self, src: &Path, dest_dir: &Path, active_file: &mut Option<PathBuf>) {
-        if src.exists() && dest_dir.is_dir() {
-            let filename = src.file_name().unwrap();
-            let target = dest_dir.join(filename);
-            let unique_target = self.get_unique_destination(&target);
-            if unique_target.starts_with(src) {
-                tracing::error!("Cannot move a directory inside itself");
-                return;
-            }
+    pub fn move_items(&self, srcs: &[PathBuf], dest_dir: &Path, active_file: &mut Option<PathBuf>) {
+        for src in srcs {
+            if src.exists() && dest_dir.is_dir() {
+                // Skip if the item is already in the destination folder
+                if src.parent() == Some(dest_dir) {
+                    continue;
+                }
 
-            let result = if let Err(_) = fs::rename(src, &unique_target) {
-                if src.is_file() {
-                    if let Err(e) = fs::copy(src, &unique_target) {
-                        Err(e)
+                let filename = src.file_name().unwrap();
+                let target = dest_dir.join(filename);
+                let unique_target = self.get_unique_destination(&target);
+                if unique_target.starts_with(src) {
+                    tracing::error!("Cannot move a directory inside itself");
+                    continue;
+                }
+
+                let result = if src.is_file() {
+                    if let Err(_) = fs::rename(src, &unique_target) {
+                        if let Err(e) = fs::copy(src, &unique_target) {
+                            Err(e)
+                        } else {
+                            fs::remove_file(src)
+                        }
                     } else {
-                        fs::remove_file(src)
+                        Ok(())
                     }
                 } else {
-                    if let Err(e) = self.copy_dir_all(src, &unique_target) {
-                        Err(e)
+                    if let Err(_) = fs::rename(src, &unique_target) {
+                        if let Err(e) = self.copy_dir_all(src, &unique_target) {
+                            Err(e)
+                        } else {
+                            fs::remove_dir_all(src)
+                        }
                     } else {
-                        fs::remove_dir_all(src)
+                        Ok(())
                     }
-                }
-            } else {
-                Ok(())
-            };
+                };
 
-            if let Err(e) = result {
-                tracing::error!("Failed to move item in drag-and-drop: {:?}", e);
-            } else {
-                if let Some(active) = active_file {
-                    if *active == src {
-                        *active = unique_target;
-                    } else if active.starts_with(src) {
-                        if let Ok(relative) = active.strip_prefix(src) {
-                            *active = unique_target.join(relative);
+                if let Err(e) = result {
+                    tracing::error!("Failed to move item: {:?}", e);
+                } else {
+                    if let Some(active) = active_file {
+                        if *active == *src {
+                            *active = unique_target;
+                        } else if active.starts_with(src) {
+                            if let Ok(relative) = active.strip_prefix(src) {
+                                *active = unique_target.join(relative);
+                            }
                         }
                     }
                 }
@@ -546,43 +753,47 @@ impl FileTree {
     pub fn paste_item(&mut self, dest_dir: &Path, active_file: &mut Option<PathBuf>) {
         if let Some(action) = self.clipboard.clone() {
             match action {
-                ClipboardAction::Copy(src) => {
-                    if src.exists() {
-                        let filename = src.file_name().unwrap();
-                        let target = dest_dir.join(filename);
-                        let unique_target = self.get_unique_destination(&target);
-                        if src.is_file() {
-                            if let Err(e) = fs::copy(&src, &unique_target) {
-                                tracing::error!("Failed to copy file: {:?}", e);
-                            }
-                        } else {
-                            if let Err(e) = self.copy_dir_all(&src, &unique_target) {
-                                tracing::error!("Failed to copy directory: {:?}", e);
+                ClipboardAction::Copy(srcs) => {
+                    for src in srcs {
+                        if src.exists() {
+                            let filename = src.file_name().unwrap();
+                            let target = dest_dir.join(filename);
+                            let unique_target = self.get_unique_destination(&target);
+                            if src.is_file() {
+                                if let Err(e) = fs::copy(&src, &unique_target) {
+                                    tracing::error!("Failed to copy file: {:?}", e);
+                                }
+                            } else {
+                                if let Err(e) = self.copy_dir_all(&src, &unique_target) {
+                                    tracing::error!("Failed to copy directory: {:?}", e);
+                                }
                             }
                         }
                     }
                 }
-                ClipboardAction::Cut(src) => {
-                    self.move_to_dir(&src, dest_dir, active_file);
+                ClipboardAction::Cut(srcs) => {
+                    self.move_items(&srcs, dest_dir, active_file);
                     self.clipboard = None;
                 }
             }
         }
     }
 
-    pub fn delete_item(&mut self, path: &Path, active_file: &mut Option<PathBuf>) {
-        let result = if path.is_file() {
-            fs::remove_file(path)
-        } else {
-            fs::remove_dir_all(path)
-        };
+    pub fn delete_items(&mut self, paths: &[PathBuf], active_file: &mut Option<PathBuf>) {
+        for path in paths {
+            let result = if path.is_file() {
+                fs::remove_file(path)
+            } else {
+                fs::remove_dir_all(path)
+            };
 
-        if let Err(e) = result {
-            tracing::error!("Failed to delete item: {:?}", e);
-        } else {
-            if let Some(active) = active_file {
-                if active == path || active.starts_with(path) {
-                    *active_file = None;
+            if let Err(e) = result {
+                tracing::error!("Failed to delete item: {:?}", e);
+            } else {
+                if let Some(active) = active_file {
+                    if active == path || active.starts_with(path) {
+                        *active_file = None;
+                    }
                 }
             }
         }

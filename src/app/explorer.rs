@@ -29,65 +29,6 @@ pub fn render_explorer(ctx: &egui::Context, state: &mut AppState) {
                     ui.separator();
 
                     ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
-                        if let Some(ref root) = state.vault.root_path {
-                            ui.horizontal(|ui| {
-                                ui.style_mut().spacing.item_spacing.x = 4.0;
-                                let target_dir = state
-                                    .explorer
-                                    .selected_folder
-                                    .clone()
-                                    .unwrap_or_else(|| root.clone());
-
-                                if ui.button("📝 New File").clicked() {
-                                    state.explorer.start_creation(
-                                        crate::explorer::tree::CreatingType::File {
-                                            parent_dir: target_dir.clone(),
-                                        },
-                                    );
-                                }
-                                if ui.button("📁 New Folder").clicked() {
-                                    state.explorer.start_creation(
-                                        crate::explorer::tree::CreatingType::Folder {
-                                            parent_dir: target_dir.clone(),
-                                        },
-                                    );
-                                }
-                                let can_paste = state.explorer.clipboard.is_some();
-                                if ui
-                                    .add_enabled(can_paste, egui::Button::new("📋 Paste"))
-                                    .clicked()
-                                {
-                                    let mut active_file = state.vault.active_file.clone();
-                                    state.explorer.paste_item(&target_dir, &mut active_file);
-                                    if active_file != state.vault.active_file {
-                                        state.vault.active_file = active_file.clone();
-                                        if active_file.is_none() {
-                                            state.editor = crate::editor::Editor::new();
-                                        } else if let Some(ref path) = active_file {
-                                            state.editor.active_path = Some(path.clone());
-                                        }
-                                    }
-                                }
-                            });
-                            ui.horizontal(|ui| {
-                                if let Some(ref selected) = state.explorer.selected_folder {
-                                    let name =
-                                        selected.file_name().unwrap_or_default().to_string_lossy();
-                                    ui.label(format!("Target: 📁 {}", name));
-                                    if ui
-                                        .button("❌")
-                                        .on_hover_text("Deselect folder (target root)")
-                                        .clicked()
-                                    {
-                                        state.explorer.selected_folder = None;
-                                    }
-                                } else {
-                                    ui.label("Target: 📁 Root");
-                                }
-                            });
-                            ui.separator();
-                        }
-
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             if let Some(ref root) = state.vault.root_path {
                                 let mut active_file = state.vault.active_file.clone();

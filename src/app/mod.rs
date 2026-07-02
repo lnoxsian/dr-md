@@ -64,7 +64,36 @@ impl eframe::App for DoctorMarkdownApp {
         if let Some(action) = handle_key_events(ctx) {
             match action {
                 ShortcutAction::NewNote => {
-                    commands::execute_new_note(&mut self.state);
+                    if let Some(ref root) = self.state.vault.root_path {
+                        self.state.explorer_visible = true;
+                        let target_dir = self
+                            .state
+                            .explorer
+                            .selected_folder
+                            .clone()
+                            .unwrap_or_else(|| root.clone());
+                        self.state.explorer.start_creation(
+                            crate::explorer::tree::CreatingType::File {
+                                parent_dir: target_dir,
+                            },
+                        );
+                    }
+                }
+                ShortcutAction::NewFolder => {
+                    if let Some(ref root) = self.state.vault.root_path {
+                        self.state.explorer_visible = true;
+                        let target_dir = self
+                            .state
+                            .explorer
+                            .selected_folder
+                            .clone()
+                            .unwrap_or_else(|| root.clone());
+                        self.state.explorer.start_creation(
+                            crate::explorer::tree::CreatingType::Folder {
+                                parent_dir: target_dir,
+                            },
+                        );
+                    }
                 }
                 ShortcutAction::OpenFolder => {
                     if let Some(path) = rfd::FileDialog::new().pick_folder() {

@@ -2,6 +2,7 @@
 pub enum ShortcutAction {
     // File
     NewNote,
+    NewFolder,
     OpenFolder,
     Save,
     SaveAs,
@@ -44,6 +45,9 @@ pub fn handle_key_events(ctx: &egui::Context) -> Option<ShortcutAction> {
         let shift = i.modifiers.shift;
         let alt = i.modifiers.alt;
 
+        if ctrl && shift && i.key_pressed(egui::Key::N) {
+            return Some(ShortcutAction::NewFolder);
+        }
         if ctrl && i.key_pressed(egui::Key::N) {
             return Some(ShortcutAction::NewNote);
         }

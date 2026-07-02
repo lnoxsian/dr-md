@@ -7,7 +7,35 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("New Note (Ctrl+N)").clicked() {
-                        commands::execute_new_note(state);
+                        if let Some(ref root) = state.vault.root_path {
+                            state.explorer_visible = true;
+                            let target_dir = state
+                                .explorer
+                                .selected_folder
+                                .clone()
+                                .unwrap_or_else(|| root.clone());
+                            state.explorer.start_creation(
+                                crate::explorer::tree::CreatingType::File {
+                                    parent_dir: target_dir,
+                                },
+                            );
+                        }
+                        ui.close_menu();
+                    }
+                    if ui.button("New Folder (Ctrl+Shift+N)").clicked() {
+                        if let Some(ref root) = state.vault.root_path {
+                            state.explorer_visible = true;
+                            let target_dir = state
+                                .explorer
+                                .selected_folder
+                                .clone()
+                                .unwrap_or_else(|| root.clone());
+                            state.explorer.start_creation(
+                                crate::explorer::tree::CreatingType::Folder {
+                                    parent_dir: target_dir,
+                                },
+                            );
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Open Folder (Ctrl+O)").clicked() {
