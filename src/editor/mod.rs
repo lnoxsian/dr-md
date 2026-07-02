@@ -18,6 +18,7 @@ pub struct Editor {
     pub undo_stack: UndoStack,
     pub active_path: Option<PathBuf>,
     pub is_dirty: bool,
+    pub version: usize,
 }
 
 impl Editor {
@@ -29,6 +30,7 @@ impl Editor {
             undo_stack: UndoStack::new(),
             active_path: None,
             is_dirty: false,
+            version: 0,
         }
     }
 
@@ -39,6 +41,7 @@ impl Editor {
         self.selection.clear(0);
         self.undo_stack.clear();
         self.is_dirty = false;
+        self.version += 1;
         Ok(())
     }
 
@@ -63,6 +66,7 @@ impl Editor {
         self.selection.clear(0);
         self.undo_stack.clear();
         self.is_dirty = true;
+        self.version += 1;
     }
 
     pub fn insert_text(&mut self, text: &str) {
@@ -79,6 +83,7 @@ impl Editor {
         self.cursor.char_idx += text.chars().count();
         self.selection.clear(self.cursor.char_idx);
         self.is_dirty = true;
+        self.version += 1;
     }
 
     pub fn delete_backward(&mut self) {
@@ -90,6 +95,7 @@ impl Editor {
             self.cursor.char_idx = range.start;
             self.selection.clear(self.cursor.char_idx);
             self.is_dirty = true;
+            self.version += 1;
         } else if self.cursor.char_idx > 0 {
             let current_text = self.buffer.to_string();
             self.undo_stack.push(current_text);
@@ -100,6 +106,7 @@ impl Editor {
             self.cursor.char_idx = start;
             self.selection.clear(self.cursor.char_idx);
             self.is_dirty = true;
+            self.version += 1;
         }
     }
 
@@ -112,6 +119,7 @@ impl Editor {
             self.cursor.char_idx = range.start;
             self.selection.clear(self.cursor.char_idx);
             self.is_dirty = true;
+            self.version += 1;
         } else if self.cursor.char_idx < self.buffer.len_chars() {
             let current_text = self.buffer.to_string();
             self.undo_stack.push(current_text);
@@ -121,6 +129,7 @@ impl Editor {
             self.buffer.remove(start, end);
             self.selection.clear(self.cursor.char_idx);
             self.is_dirty = true;
+            self.version += 1;
         }
     }
 
@@ -131,6 +140,7 @@ impl Editor {
             self.cursor.char_idx = self.cursor.char_idx.min(self.buffer.len_chars());
             self.selection.clear(self.cursor.char_idx);
             self.is_dirty = true;
+            self.version += 1;
         }
     }
 
@@ -141,6 +151,7 @@ impl Editor {
             self.cursor.char_idx = self.cursor.char_idx.min(self.buffer.len_chars());
             self.selection.clear(self.cursor.char_idx);
             self.is_dirty = true;
+            self.version += 1;
         }
     }
 }

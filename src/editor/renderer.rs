@@ -4,23 +4,27 @@ use egui::{Color32, FontId, TextFormat};
 
 pub struct EditorRenderer {
     pub content_buffer: String,
+    pub last_version: usize,
 }
 
 impl EditorRenderer {
     pub fn new() -> Self {
         Self {
             content_buffer: String::new(),
+            last_version: usize::MAX,
         }
     }
 
     pub fn sync_from_editor(&mut self, editor: &Editor) {
-        self.content_buffer = editor.buffer.to_string();
+        if editor.version != self.last_version {
+            self.content_buffer = editor.buffer.to_string();
+            self.last_version = editor.version;
+        }
     }
 
-    pub fn sync_to_editor(&self, editor: &mut Editor) {
-        if self.content_buffer != editor.buffer.to_string() {
-            editor.set_text(&self.content_buffer);
-        }
+    pub fn sync_to_editor(&mut self, editor: &mut Editor) {
+        editor.set_text(&self.content_buffer);
+        self.last_version = editor.version;
     }
 
     pub fn show(
@@ -185,9 +189,9 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32, link_color
     };
 
     let mut in_code_block = false;
-    let lines: Vec<&str> = text.split('\n').collect();
+    let mut lines = text.split('\n').peekable();
 
-    for (i, line) in lines.iter().enumerate() {
+    while let Some(line) = lines.next() {
         let mut line_format = TextFormat {
             font_id: normal_font.clone(),
             color: default_color,
@@ -295,7 +299,7 @@ fn create_layout_job(text: &str, font_size: f32, text_color: Color32, link_color
             job.append(&run, 0.0, line_format.clone());
         }
 
-        if i < lines.len() - 1 {
+        if lines.peek().is_some() {
             job.append(
                 "\n",
                 0.0,

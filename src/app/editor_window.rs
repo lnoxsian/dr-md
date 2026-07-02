@@ -15,17 +15,9 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                     );
                 }
                 ViewMode::Preview => {
-                    let mut content = state.editor.buffer.to_string();
-                    let old_content = content.clone();
-                    state.preview.show(ui, &mut content, state.config.font_size);
-                    if content != old_content {
-                        state.editor.set_text(&content);
-                    }
+                    state.preview.show(ui, &mut state.editor, state.config.font_size);
                 }
                 ViewMode::Split => {
-                    let mut content = state.editor.buffer.to_string();
-                    let old_content = content.clone();
-
                     let min_rect = ui.max_rect();
                     // Allocate the entire space so egui knows we are occupying it
                     ui.allocate_rect(min_rect, egui::Sense::hover());
@@ -104,7 +96,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                         // Bottom Pane: Preview
                         let mut bottom_ui = ui.child_ui(bottom_rect, egui::Layout::top_down(egui::Align::Min));
                         bottom_ui.set_clip_rect(bottom_rect);
-                        state.preview.show(&mut bottom_ui, &mut content, state.config.font_size);
+                        state.preview.show(&mut bottom_ui, &mut state.editor, state.config.font_size);
                     } else {
                         // Horizontal Split (Side-by-Side)
                         let separator_width = 2.0;
@@ -176,11 +168,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                         // Right Pane: Preview
                         let mut right_ui = ui.child_ui(right_rect, egui::Layout::top_down(egui::Align::Min));
                         right_ui.set_clip_rect(right_rect);
-                        state.preview.show(&mut right_ui, &mut content, state.config.font_size);
-                    }
-
-                    if content != old_content {
-                        state.editor.set_text(&content);
+                        state.preview.show(&mut right_ui, &mut state.editor, state.config.font_size);
                     }
                 }
             }

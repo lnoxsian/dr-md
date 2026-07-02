@@ -1,18 +1,28 @@
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
+use crate::editor::Editor;
 
 pub struct MarkdownPreview {
     pub cache: CommonMarkCache,
+    pub cached_content: String,
+    pub last_version: usize,
 }
 
 impl MarkdownPreview {
     pub fn new() -> Self {
         Self {
             cache: CommonMarkCache::default(),
+            cached_content: String::new(),
+            last_version: usize::MAX,
         }
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, content: &mut String, font_size: f32) {
-        let mut processed = super::parser::preprocess_wiki_links(content);
+    pub fn show(&mut self, ui: &mut egui::Ui, editor: &mut Editor, font_size: f32) {
+        if editor.version != self.last_version {
+            self.cached_content = editor.buffer.to_string();
+            self.last_version = editor.version;
+        }
+
+        let mut processed = super::parser::preprocess_wiki_links(&self.cached_content);
         let processed_old = processed.clone();
 
         egui::ScrollArea::vertical()
@@ -55,7 +65,7 @@ impl MarkdownPreview {
             // Apply checkbox changes back to content line by line
             let old_lines: Vec<&str> = processed_old.lines().collect();
             let new_lines: Vec<&str> = processed.lines().collect();
-            let mut orig_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+            let mut orig_lines: Vec<String> = self.cached_content.lines().map(|s| s.to_string()).collect();
 
             if old_lines.len() == new_lines.len() && old_lines.len() == orig_lines.len() {
                 for i in 0..old_lines.len() {
@@ -115,7 +125,9 @@ impl MarkdownPreview {
                         }
                     }
                 }
-                *content = orig_lines.join("\n");
+                self.cached_content = orig_lines.join("\n");
+                editor.set_text(&self.cached_content);
+                self.last_version = editor.version;
             }
         }
     }
