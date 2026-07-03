@@ -150,5 +150,7 @@ impl eframe::App for DoctorMarkdownApp {
         menu_bar::render_menu_bar(ctx, &mut self.state);
         explorer::render_explorer(ctx, &mut self.state);
         editor_window::render_editor_window(ctx, &mut self.state);
+
+        self.state.check_autosave(ctx);
     }
 }

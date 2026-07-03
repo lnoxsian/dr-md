@@ -128,15 +128,22 @@ pub fn code_block<'t>(
     let button_width = (text_size.x + spacing.button_padding.x * 2.0).max(30.0);
     let button_height = (text_size.y + spacing.button_padding.y * 2.0).max(16.0);
 
+    let top_padding = 5.0;
+    let position_y = if frame_rect.height() < 40.0 {
+        frame_rect.top() + (frame_rect.height() - button_height) / 2.0
+    } else {
+        frame_rect.top() + top_padding
+    };
+
     let position = egui::pos2(
         frame_rect.right_top().x - button_width - 5.0,
-        frame_rect.right_top().y + 5.0,
+        position_y,
     );
 
     let copy_button = ui
         .put(
             egui::Rect::from_min_size(position, egui::vec2(button_width, button_height)),
-            egui::Button::new(button_text)
+            egui::Button::new(RichText::new(button_text).small())
                 .small()
                 .frame(false)
                 .fill(egui::Color32::TRANSPARENT)

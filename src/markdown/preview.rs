@@ -30,7 +30,7 @@ impl MarkdownPreview {
             .auto_shrink([false; 2])
             .show(ui, |ui| {
                 egui::Frame::none()
-                    .inner_margin(egui::Margin::symmetric(24.0, 0.0))
+                    .inner_margin(egui::Margin::symmetric(24.0, 8.0))
                     .show(ui, |ui| {
                         let mut style = ui.style().as_ref().clone();
                         let body_font =

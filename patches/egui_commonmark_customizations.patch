@@ -1,0 +1,80 @@
+diff -ruN /home/lnoxsian/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_commonmark-0.15.0/src/elements.rs crates/egui_commonmark/src/elements.rs
+--- /home/lnoxsian/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_commonmark-0.15.0/src/elements.rs	2006-07-24 06:51:28.000000000 +0530
++++ crates/egui_commonmark/src/elements.rs	2026-07-04 02:00:33.753937610 +0530
+@@ -111,25 +111,43 @@
+ 
+     // Copy icon
+     let spacing = &ui.style().spacing;
+-    let position = egui::pos2(
+-        frame_rect.right_top().x - spacing.icon_width * 0.5 - spacing.button_padding.x,
+-        frame_rect.right_top().y + spacing.button_padding.y * 2.0,
+-    );
+ 
+     // Check if we should show ✔ instead of 🗐 if the text was copied and the mouse is hovered
+     let persistent_id = ui.make_persistent_id(output.response.id);
+     let copied_icon = ui.memory_mut(|m| *m.data.get_temp_mut_or_default::<bool>(persistent_id));
+ 
++    let button_text = if copied_icon { "OK" } else { "CC" };
++    let font_id = egui::TextStyle::Small.resolve(ui.style());
++    let galley = ui.painter().layout_no_wrap(
++        button_text.to_owned(),
++        font_id,
++        ui.visuals().text_color(),
++    );
++    let text_size = galley.size();
++
++    let button_width = (text_size.x + spacing.button_padding.x * 2.0).max(30.0);
++    let button_height = (text_size.y + spacing.button_padding.y * 2.0).max(16.0);
++
++    let top_padding = 5.0;
++    let position_y = if frame_rect.height() < 40.0 {
++        frame_rect.top() + (frame_rect.height() - button_height) / 2.0
++    } else {
++        frame_rect.top() + top_padding
++    };
++
++    let position = egui::pos2(
++        frame_rect.right_top().x - button_width - 5.0,
++        position_y,
++    );
++
+     let copy_button = ui
+         .put(
+-            egui::Rect {
+-                min: position,
+-                max: position,
+-            },
+-            egui::Button::new(if copied_icon { "✔" } else { "🗐" })
++            egui::Rect::from_min_size(position, egui::vec2(button_width, button_height)),
++            egui::Button::new(RichText::new(button_text).small())
+                 .small()
+                 .frame(false)
+-                .fill(egui::Color32::TRANSPARENT),
++                .fill(egui::Color32::TRANSPARENT)
++                .wrap(false),
+         )
+         // workaround for a regression after egui 0.27 where the edit cursor was shown even when
+         // hovering over the button. We try interact_cursor first to allow the cursor to be
+diff -ruN /home/lnoxsian/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_commonmark-0.15.0/src/lib.rs crates/egui_commonmark/src/lib.rs
+--- /home/lnoxsian/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/egui_commonmark-0.15.0/src/lib.rs	2006-07-24 06:51:28.000000000 +0530
++++ crates/egui_commonmark/src/lib.rs	2026-07-03 18:10:06.587823274 +0530
+@@ -736,12 +736,17 @@
+ }
+ 
+ fn plain_highlighting(ui: &Ui, text: &str, extension: &str) -> egui::text::LayoutJob {
+-    egui_extras::syntax_highlighting::highlight(
++    let mut job = egui_extras::syntax_highlighting::highlight(
+         ui.ctx(),
+         &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()),
+         text,
+         extension,
+-    )
++    );
++    let font_id = TextStyle::Monospace.resolve(ui.style());
++    for section in &mut job.sections {
++        section.format.font_id = font_id.clone();
++    }
++    job
+ }
+ 
+ #[cfg(feature = "better_syntax_highlighting")]

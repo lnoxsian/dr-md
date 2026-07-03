@@ -2,7 +2,7 @@ use crate::app::state::{AppState, ViewMode};
 
 pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
     let panel_frame =
-        egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(0.0, 8.0));
+        egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(0.0, 0.0));
     egui::CentralPanel::default()
         .frame(panel_frame)
         .show(ctx, |ui| {

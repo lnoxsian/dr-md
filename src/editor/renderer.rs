@@ -481,7 +481,7 @@ impl EditorRenderer {
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
                     egui::Frame::none()
-                        .inner_margin(egui::Margin::symmetric(24.0, 0.0))
+                        .inner_margin(egui::Margin::symmetric(24.0, 8.0))
                         .show(ui, |ui| {
                             let available_width = ui.available_width();
                             let gutter_width = 30.0;
@@ -582,7 +582,7 @@ impl EditorRenderer {
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
                     egui::Frame::none()
-                        .inner_margin(egui::Margin::symmetric(24.0, 0.0))
+                        .inner_margin(egui::Margin::symmetric(24.0, 8.0))
                         .show(ui, |ui| {
                             let available_width = ui.available_width();
                             let text_wrap_width = (available_width - 8.0).max(100.0);
