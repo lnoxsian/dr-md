@@ -23,6 +23,8 @@ pub struct AppState {
     pub explorer_visible: bool,
     pub focus_mode: bool,
     pub split_ratio: f32,
+    pub logo_light_mode: Option<egui::TextureHandle>,
+    pub logo_dark_mode: Option<egui::TextureHandle>,
 }
 
 impl AppState {
@@ -41,6 +43,8 @@ impl AppState {
             explorer_visible: true,
             focus_mode: false,
             split_ratio: 0.5,
+            logo_light_mode: None,
+            logo_dark_mode: None,
         }
     }
 }
