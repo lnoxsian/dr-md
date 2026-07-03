@@ -55,5 +55,13 @@ update-version version:
 
 # Generate the various resolutions for application icons
 generate-icons:
-    python3 scripts/generate_icons.py
+    python3 scripts/generate_assets.py --type icons
+
+# Generate the dark and light mode logo assets
+generate-logos:
+    python3 scripts/generate_assets.py --type logo
+
+# Generate all application assets (icons and logos)
+generate-assets:
+    python3 scripts/generate_assets.py --type all
 
