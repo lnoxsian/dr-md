@@ -264,6 +264,13 @@ fn gruvbox_light_visuals() -> egui::Visuals {
     visuals
 }
 
+fn lighten_color(color: egui::Color32, factor: f32) -> egui::Color32 {
+    let r = (color.r() as f32 + (255.0 - color.r() as f32) * factor).round() as u8;
+    let g = (color.g() as f32 + (255.0 - color.g() as f32) * factor).round() as u8;
+    let b = (color.b() as f32 + (255.0 - color.b() as f32) * factor).round() as u8;
+    egui::Color32::from_rgb(r, g, b)
+}
+
 pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     let mut style = (*ctx.style()).clone();
 
@@ -288,8 +295,14 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
 
     let accent_color = config.theme_accent.color();
 
-    // Apply theme accent color to selection
-    style.visuals.selection.bg_fill = accent_color;
+    // Apply theme accent color to selection (using a lighter variant in light mode for readability)
+    if !style.visuals.dark_mode {
+        style.visuals.selection.bg_fill = lighten_color(accent_color, 0.75);
+        style.visuals.selection.stroke.color = accent_color;
+    } else {
+        style.visuals.selection.bg_fill = accent_color;
+        style.visuals.selection.stroke.color = egui::Color32::WHITE;
+    }
 
     // Apply to hyperlinks
     style.visuals.hyperlink_color = accent_color;

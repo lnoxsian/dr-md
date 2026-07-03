@@ -111,24 +111,36 @@ pub fn code_block<'t>(
 
     // Copy icon
     let spacing = &ui.style().spacing;
-    let button_width = 30.0;
-    let button_height = 16.0;
-    let position = egui::pos2(
-        frame_rect.right_top().x - button_width - spacing.button_padding.x,
-        frame_rect.right_top().y + spacing.button_padding.y * 2.0,
-    );
 
     // Check if we should show ✔ instead of 🗐 if the text was copied and the mouse is hovered
     let persistent_id = ui.make_persistent_id(output.response.id);
     let copied_icon = ui.memory_mut(|m| *m.data.get_temp_mut_or_default::<bool>(persistent_id));
 
+    let button_text = if copied_icon { "OK" } else { "CC" };
+    let font_id = egui::TextStyle::Small.resolve(ui.style());
+    let galley = ui.painter().layout_no_wrap(
+        button_text.to_owned(),
+        font_id,
+        ui.visuals().text_color(),
+    );
+    let text_size = galley.size();
+
+    let button_width = (text_size.x + spacing.button_padding.x * 2.0).max(30.0);
+    let button_height = (text_size.y + spacing.button_padding.y * 2.0).max(16.0);
+
+    let position = egui::pos2(
+        frame_rect.right_top().x - button_width - 5.0,
+        frame_rect.right_top().y + 5.0,
+    );
+
     let copy_button = ui
         .put(
             egui::Rect::from_min_size(position, egui::vec2(button_width, button_height)),
-            egui::Button::new(if copied_icon { "OK" } else { "CC" })
+            egui::Button::new(button_text)
                 .small()
                 .frame(false)
-                .fill(egui::Color32::TRANSPARENT),
+                .fill(egui::Color32::TRANSPARENT)
+                .wrap(false),
         )
         // workaround for a regression after egui 0.27 where the edit cursor was shown even when
         // hovering over the button. We try interact_cursor first to allow the cursor to be
