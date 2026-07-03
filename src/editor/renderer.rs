@@ -5,6 +5,8 @@ use egui::{Color32, FontId, TextFormat};
 pub struct EditorRenderer {
     pub content_buffer: String,
     pub last_version: usize,
+    pub previous_text: String,
+    pub previous_cursor: Option<egui::text::CCursorRange>,
 }
 
 impl EditorRenderer {
@@ -12,6 +14,8 @@ impl EditorRenderer {
         Self {
             content_buffer: String::new(),
             last_version: usize::MAX,
+            previous_text: String::new(),
+            previous_cursor: None,
         }
     }
 
@@ -19,12 +23,265 @@ impl EditorRenderer {
         if editor.version != self.last_version {
             self.content_buffer = editor.buffer.to_string();
             self.last_version = editor.version;
+            self.previous_text = self.content_buffer.clone();
+            self.previous_cursor = None;
         }
     }
 
     pub fn sync_to_editor(&mut self, editor: &mut Editor) {
         editor.set_text(&self.content_buffer);
         self.last_version = editor.version;
+    }
+
+    fn process_autoclosing(
+        &mut self,
+        ctx: &egui::Context,
+        id: egui::Id,
+        mut state: egui::widgets::text_edit::TextEditState,
+        ui_changed: bool,
+    ) -> bool {
+        let mut text_changed = false;
+
+        if let Some(range) = state.cursor.char_range() {
+            let current_idx = range.primary.index;
+            let secondary_idx = range.secondary.index;
+
+            // Only perform autoclosing/modifications if the text was actually changed by typing/deleting
+            if ui_changed {
+                // Check if there was a selection in the previous frame
+                if let Some(prev_range) = self.previous_cursor {
+                    let prev_start = prev_range.primary.index.min(prev_range.secondary.index);
+                    let prev_end = prev_range.primary.index.max(prev_range.secondary.index);
+
+                    if prev_start != prev_end {
+                        // There was a selection!
+                        // Let's see if the user replaced it by typing a single character.
+                        // Egui would replace the selection with the character, making the new cursor a single cursor
+                        // at start + 1.
+                        if current_idx == secondary_idx && current_idx == prev_start + 1 {
+                            let new_chars: Vec<char> = self.content_buffer.chars().collect();
+                            if prev_start < new_chars.len() {
+                                let typed_char = new_chars[prev_start];
+                                let selected_text: String = self.previous_text.chars().skip(prev_start).take(prev_end - prev_start).collect();
+
+                                let mut replacement = None;
+                                let mut cursor_offset = 0;
+
+                                match typed_char {
+                                    '(' => {
+                                        replacement = Some(format!("({})", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '[' => {
+                                        replacement = Some(format!("[{}]()", selected_text));
+                                        cursor_offset = selected_text.len() + 3;
+                                    }
+                                    '{' => {
+                                        replacement = Some(format!("{{{}}}", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '"' => {
+                                        replacement = Some(format!("\"{}\"", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '\'' => {
+                                        replacement = Some(format!("'{}\'", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '`' => {
+                                        replacement = Some(format!("`{}`", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '*' => {
+                                        replacement = Some(format!("*{}*", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '_' => {
+                                        replacement = Some(format!("_{}_", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    '~' => {
+                                        replacement = Some(format!("~{}~", selected_text));
+                                        cursor_offset = selected_text.len() + 2;
+                                    }
+                                    _ => {}
+                                }
+
+                                if let Some(rep) = replacement {
+                                    let mut final_text = String::new();
+                                    final_text.push_str(&self.content_buffer.chars().take(prev_start).collect::<String>());
+                                    final_text.push_str(&rep);
+                                    final_text.push_str(&self.content_buffer.chars().skip(prev_start + 1).collect::<String>());
+
+                                    self.content_buffer = final_text;
+                                    text_changed = true;
+
+                                    let new_cursor_idx = prev_start + cursor_offset;
+                                    let ccursor = egui::text::CCursor::new(new_cursor_idx);
+                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                }
+                            }
+                        }
+                    } else {
+                        // No selection in previous frame.
+                        let prev_idx = prev_range.primary.index;
+                        if current_idx == secondary_idx {
+                            if current_idx == prev_idx + 1 {
+                                let new_chars: Vec<char> = self.content_buffer.chars().collect();
+                                if prev_idx < new_chars.len() {
+                                    let typed_char = new_chars[prev_idx];
+
+                                    // 1. STEP OVER CLOSING BRACKETS
+                                    let mut stepped_over = false;
+                                    if [')', ']', '}', '"', '\'', '`'].contains(&typed_char) {
+                                        if current_idx < new_chars.len() && new_chars[current_idx] == typed_char {
+                                            let mut final_text = String::new();
+                                            final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                            final_text.push_str(&self.content_buffer.chars().skip(current_idx + 1).collect::<String>());
+
+                                            self.content_buffer = final_text;
+                                            text_changed = true;
+                                            stepped_over = true;
+
+                                            let ccursor = egui::text::CCursor::new(current_idx);
+                                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                        }
+                                    }
+
+                                    if !stepped_over {
+                                        // 2. AUTOCLOSE OPENING BRACKETS
+                                        let mut autoclose_char = None;
+                                        match typed_char {
+                                            '(' => autoclose_char = Some(')'),
+                                            '[' => autoclose_char = Some(']'),
+                                            '{' => autoclose_char = Some('}'),
+                                            '"' => autoclose_char = Some('"'),
+                                            '\'' => autoclose_char = Some('\''),
+                                            '`' => {
+                                                if prev_idx >= 2
+                                                    && new_chars[prev_idx - 1] == '`'
+                                                    && new_chars[prev_idx - 2] == '`'
+                                                {
+                                                    let mut final_text = String::new();
+                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str("```");
+                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+
+                                                    self.content_buffer = final_text;
+                                                    text_changed = true;
+
+                                                    let ccursor = egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                } else {
+                                                    autoclose_char = Some('`');
+                                                }
+                                            }
+                                            '*' => {
+                                                if prev_idx >= 1 && new_chars[prev_idx - 1] == '*' {
+                                                    let mut final_text = String::new();
+                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str("**");
+                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+
+                                                    self.content_buffer = final_text;
+                                                    text_changed = true;
+
+                                                    let ccursor = egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                }
+                                            }
+                                            '_' => {
+                                                if prev_idx >= 1 && new_chars[prev_idx - 1] == '_' {
+                                                    let mut final_text = String::new();
+                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str("__");
+                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+
+                                                    self.content_buffer = final_text;
+                                                    text_changed = true;
+
+                                                    let ccursor = egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                }
+                                            }
+                                            '~' => {
+                                                if prev_idx >= 1 && new_chars[prev_idx - 1] == '~' {
+                                                    let mut final_text = String::new();
+                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str("~~");
+                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+
+                                                    self.content_buffer = final_text;
+                                                    text_changed = true;
+
+                                                    let ccursor = egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+
+                                        if let Some(ac) = autoclose_char {
+                                            let mut final_text = String::new();
+                                            final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                            final_text.push_str(&ac.to_string());
+                                            final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+
+                                            self.content_buffer = final_text;
+                                            text_changed = true;
+
+                                            let ccursor = egui::text::CCursor::new(current_idx);
+                                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                        }
+                                    }
+                                }
+                            } else if current_idx == prev_idx.saturating_sub(1) && prev_idx > 0 {
+                                let old_chars: Vec<char> = self.previous_text.chars().collect();
+                                let new_chars: Vec<char> = self.content_buffer.chars().collect();
+                                if current_idx < old_chars.len() {
+                                    let deleted_char = old_chars[current_idx];
+                                    let mut matching_close = None;
+                                    match deleted_char {
+                                        '(' => matching_close = Some(')'),
+                                        '[' => matching_close = Some(']'),
+                                        '{' => matching_close = Some('}'),
+                                        '"' => matching_close = Some('"'),
+                                        '\'' => matching_close = Some('\''),
+                                        '`' => matching_close = Some('`'),
+                                        _ => {}
+                                    }
+                                    if let Some(close_char) = matching_close {
+                                        if current_idx < new_chars.len() && new_chars[current_idx] == close_char {
+                                            let mut final_text = String::new();
+                                            final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                            final_text.push_str(&self.content_buffer.chars().skip(current_idx + 1).collect::<String>());
+
+                                            self.content_buffer = final_text;
+                                            text_changed = true;
+
+                                            let ccursor = egui::text::CCursor::new(current_idx);
+                                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            self.previous_cursor = state.cursor.char_range();
+        } else {
+            self.previous_cursor = None;
+        }
+
+        self.previous_text = self.content_buffer.clone();
+
+        if text_changed {
+            state.store(ctx, id);
+        }
+
+        text_changed
     }
 
     pub fn show(
@@ -52,7 +309,7 @@ impl EditorRenderer {
                             let text_wrap_width =
                                 (available_width - gutter_width - spacing - 8.0).max(100.0);
 
-                            let (gutter_rect, edit_res) = {
+                            let (gutter_rect, edit_res, text_changed) = {
                                 let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
                                     let default_color = ui.style().visuals.text_color();
                                     let link_color = ui.style().visuals.hyperlink_color;
@@ -82,16 +339,18 @@ impl EditorRenderer {
                                         egui::Sense::hover(),
                                     );
 
-                                    let edit_res = ui.add(
-                                        egui::TextEdit::multiline(&mut self.content_buffer)
-                                            .id(egui::Id::new("editor_text_edit"))
-                                            .font(FontId::monospace(font_size))
-                                            .frame(false)
-                                            .layouter(&mut layouter)
-                                            .desired_width(f32::INFINITY),
-                                    );
+                                    let text_edit = egui::TextEdit::multiline(&mut self.content_buffer)
+                                        .id(egui::Id::new("editor_text_edit"))
+                                        .font(FontId::monospace(font_size))
+                                        .frame(false)
+                                        .layouter(&mut layouter)
+                                        .desired_width(f32::INFINITY);
+                                    let edit_output = text_edit.show(ui);
+                                    let edit_res = edit_output.response;
 
-                                    (gutter_rect, edit_res)
+                                    let text_changed = self.process_autoclosing(ui.ctx(), edit_res.id, edit_output.state, edit_res.changed());
+
+                                    (gutter_rect, edit_res, text_changed)
                                 })
                                 .inner
                             };
@@ -118,12 +377,12 @@ impl EditorRenderer {
                             // Add bottom padding inside scroll viewport
                             ui.add_space(100.0);
 
-                            edit_res
+                            (edit_res, text_changed)
                         })
                         .inner
                 });
 
-            if output.inner.changed() {
+            if output.inner.0.changed() || output.inner.1 {
                 self.sync_to_editor(editor);
             }
         } else {
@@ -144,23 +403,26 @@ impl EditorRenderer {
                                 ui.fonts(|f| f.layout_job(job))
                             };
 
-                            let res = ui.add(
-                                egui::TextEdit::multiline(&mut self.content_buffer)
-                                    .id(egui::Id::new("editor_text_edit"))
-                                    .font(FontId::monospace(font_size))
-                                    .frame(false)
-                                    .layouter(&mut layouter)
-                                    .desired_width(f32::INFINITY),
-                            );
+                            let text_edit = egui::TextEdit::multiline(&mut self.content_buffer)
+                                .id(egui::Id::new("editor_text_edit"))
+                                .font(FontId::monospace(font_size))
+                                .frame(false)
+                                .layouter(&mut layouter)
+                                .desired_width(f32::INFINITY);
+                            let edit_output = text_edit.show(ui);
+                            let edit_res = edit_output.response;
+
+                            let text_changed = self.process_autoclosing(ui.ctx(), edit_res.id, edit_output.state, edit_res.changed());
 
                             // Add bottom padding inside scroll viewport
                             ui.add_space(100.0);
 
-                            res
+                            (edit_res, text_changed)
                         })
                         .inner
                 });
-            if output.inner.changed() {
+
+            if output.inner.0.changed() || output.inner.1 {
                 self.sync_to_editor(editor);
             }
         }
