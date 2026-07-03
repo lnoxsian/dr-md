@@ -192,10 +192,10 @@ impl FileTree {
         if let Some(creating) = &self.creating_type {
             match creating {
                 CreatingType::File { parent_dir } if parent_dir == path => {
-                    self.render_creation_input(ui, path, true, active_file);
+                    self.render_creation_input(ui, path, true, clicked_file, active_file);
                 }
                 CreatingType::Folder { parent_dir } if parent_dir == path => {
-                    self.render_creation_input(ui, path, false, active_file);
+                    self.render_creation_input(ui, path, false, clicked_file, active_file);
                 }
                 _ => {}
             }
@@ -227,6 +227,7 @@ impl FileTree {
                         ui,
                         entry_path.parent().unwrap(),
                         !is_dir,
+                        clicked_file,
                         active_file,
                     );
                     continue;
@@ -571,6 +572,7 @@ impl FileTree {
         ui: &mut egui::Ui,
         _parent: &Path,
         is_file: bool,
+        clicked_file: &mut Option<PathBuf>,
         active_file: &mut Option<PathBuf>,
     ) {
         ui.horizontal(|ui| {
@@ -631,6 +633,7 @@ impl FileTree {
                                 dest.set_extension("md");
                             }
                             fs::write(&dest, "").ok();
+                            *clicked_file = Some(dest);
                         }
                         Some(CreatingType::Folder { parent_dir }) => {
                             let dest = parent_dir.join(&name);

@@ -207,6 +207,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                 });
 
                 ui.menu_button("Settings", |ui| {
+                    ui.set_min_width(220.0);
                     ui.label("Base Theme:");
                     ui.horizontal(|ui| {
                         let themes = [
