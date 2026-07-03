@@ -17,5 +17,4 @@ impl Vault {
         self.root_path = Some(path);
         self.active_file = None;
     }
-
 }

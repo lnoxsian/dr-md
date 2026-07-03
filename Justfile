@@ -52,3 +52,8 @@ update-version version:
     sed -i 's/^version = "[^"]*"/version = "{{version}}"/' Cargo.toml
     echo "APP_VERSION={{version}}" > VERSION
     echo "RUST_VERSION=$(rustc --version | awk '{print $2}')" >> VERSION
+
+# Generate the various resolutions for application icons
+generate-icons:
+    python3 scripts/generate_icons.py
+

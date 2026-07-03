@@ -22,14 +22,14 @@ impl Default for ThemeAccent {
 impl ThemeAccent {
     pub fn color(&self) -> egui::Color32 {
         match self {
-            Self::Blue => egui::Color32::from_rgb(59, 130, 246),
-            Self::Purple => egui::Color32::from_rgb(168, 85, 247),
-            Self::Orange => egui::Color32::from_rgb(249, 115, 22),
-            Self::Red => egui::Color32::from_rgb(239, 68, 68),
-            Self::Green => egui::Color32::from_rgb(16, 185, 129),
-            Self::Pink => egui::Color32::from_rgb(236, 72, 153),
-            Self::Teal => egui::Color32::from_rgb(20, 184, 166),
-            Self::Yellow => egui::Color32::from_rgb(234, 179, 8),
+            Self::Blue => egui::Color32::from_rgb(29, 78, 216),
+            Self::Purple => egui::Color32::from_rgb(109, 40, 217),
+            Self::Orange => egui::Color32::from_rgb(194, 65, 12),
+            Self::Red => egui::Color32::from_rgb(185, 28, 28),
+            Self::Green => egui::Color32::from_rgb(21, 128, 61),
+            Self::Pink => egui::Color32::from_rgb(190, 24, 93),
+            Self::Teal => egui::Color32::from_rgb(15, 118, 110),
+            Self::Yellow => egui::Color32::from_rgb(161, 98, 7),
         }
     }
 
@@ -86,16 +86,197 @@ impl Default for AppConfig {
     }
 }
 
+fn solarized_dark_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::dark();
+    let bg_main = egui::Color32::from_rgb(0, 43, 54); // Base03
+    let bg_alt = egui::Color32::from_rgb(7, 54, 66); // Base02
+    let fg_main = egui::Color32::from_rgb(131, 148, 150); // Base0
+    let fg_muted = egui::Color32::from_rgb(88, 110, 117); // Base01
+    let fg_bright = egui::Color32::from_rgb(147, 161, 161); // Base1
+
+    visuals.dark_mode = true;
+    visuals.panel_fill = bg_main;
+    visuals.window_fill = bg_alt;
+    visuals.extreme_bg_color = bg_main;
+    visuals.faint_bg_color = bg_alt;
+    visuals.code_bg_color = bg_alt;
+    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+
+    visuals.widgets.noninteractive.bg_fill = bg_alt;
+    visuals.widgets.noninteractive.weak_bg_fill = bg_main;
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(20, 81, 98);
+    visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(20, 81, 98);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(10, 64, 79);
+    visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(10, 64, 79);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+
+    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(12, 74, 91);
+    visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(12, 74, 91);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+
+    visuals.widgets.open.bg_fill = bg_alt;
+    visuals.widgets.open.weak_bg_fill = bg_alt;
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals
+}
+
+fn solarized_light_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::light();
+    let bg_main = egui::Color32::from_rgb(253, 246, 227); // Base3
+    let bg_alt = egui::Color32::from_rgb(238, 232, 213); // Base2
+    let fg_main = egui::Color32::from_rgb(101, 123, 131); // Base00
+    let fg_muted = egui::Color32::from_rgb(147, 161, 161); // Base1
+    let fg_dark = egui::Color32::from_rgb(88, 110, 117); // Base01
+
+    visuals.dark_mode = false;
+    visuals.panel_fill = bg_main;
+    visuals.window_fill = bg_alt;
+    visuals.extreme_bg_color = bg_main;
+    visuals.faint_bg_color = bg_alt;
+    visuals.code_bg_color = bg_alt;
+    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+
+    visuals.widgets.noninteractive.bg_fill = bg_alt;
+    visuals.widgets.noninteractive.weak_bg_fill = bg_main;
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(220, 214, 190);
+    visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(220, 214, 190);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(224, 217, 197);
+    visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(224, 217, 197);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+
+    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(213, 206, 185);
+    visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(213, 206, 185);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+
+    visuals.widgets.open.bg_fill = bg_alt;
+    visuals.widgets.open.weak_bg_fill = bg_alt;
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals
+}
+
+fn gruvbox_dark_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::dark();
+    let bg_main = egui::Color32::from_rgb(40, 40, 40); // bg0
+    let bg_alt = egui::Color32::from_rgb(60, 56, 54); // bg1
+    let bg_dark = egui::Color32::from_rgb(29, 32, 33); // bg0_hard
+    let fg_main = egui::Color32::from_rgb(235, 219, 178); // fg1
+    let fg_bright = egui::Color32::from_rgb(251, 241, 199); // fg0
+    let fg_muted = egui::Color32::from_rgb(168, 153, 132); // fg4
+
+    visuals.dark_mode = true;
+    visuals.panel_fill = bg_main;
+    visuals.window_fill = bg_alt;
+    visuals.extreme_bg_color = bg_dark;
+    visuals.faint_bg_color = bg_alt;
+    visuals.code_bg_color = bg_alt;
+    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+
+    visuals.widgets.noninteractive.bg_fill = bg_alt;
+    visuals.widgets.noninteractive.weak_bg_fill = bg_main;
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(80, 73, 69);
+    visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(80, 73, 69);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(80, 73, 69);
+    visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(80, 73, 69);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+
+    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(102, 92, 84);
+    visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(102, 92, 84);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+
+    visuals.widgets.open.bg_fill = bg_alt;
+    visuals.widgets.open.weak_bg_fill = bg_alt;
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals
+}
+
+fn gruvbox_light_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::light();
+    let bg_main = egui::Color32::from_rgb(251, 241, 199); // bg0 (light)
+    let bg_alt = egui::Color32::from_rgb(235, 219, 178); // bg1 (light)
+    let bg_light = egui::Color32::from_rgb(249, 245, 215); // bg0_hard (light)
+    let fg_main = egui::Color32::from_rgb(60, 56, 54); // fg1 (light)
+    let fg_dark = egui::Color32::from_rgb(40, 40, 40); // fg0 (light)
+    let fg_muted = egui::Color32::from_rgb(124, 111, 100); // fg4 (light)
+
+    visuals.dark_mode = false;
+    visuals.panel_fill = bg_main;
+    visuals.window_fill = bg_alt;
+    visuals.extreme_bg_color = bg_light;
+    visuals.faint_bg_color = bg_alt;
+    visuals.code_bg_color = bg_alt;
+    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+
+    visuals.widgets.noninteractive.bg_fill = bg_alt;
+    visuals.widgets.noninteractive.weak_bg_fill = bg_main;
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(213, 196, 161);
+    visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(213, 196, 161);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(213, 196, 161);
+    visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(213, 196, 161);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+
+    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(189, 174, 147);
+    visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(189, 174, 147);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+
+    visuals.widgets.open.bg_fill = bg_alt;
+    visuals.widgets.open.weak_bg_fill = bg_alt;
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+
+    visuals
+}
+
 pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     let mut style = (*ctx.style()).clone();
-    
-    // Set theme base mode (dark/light)
-    style.visuals = if config.theme == "dark" {
-        egui::Visuals::dark()
-    } else {
-        egui::Visuals::light()
+
+    // Set theme base mode
+    style.visuals = match config.theme.as_str() {
+        "solarized_dark" => solarized_dark_visuals(),
+        "solarized_light" => solarized_light_visuals(),
+        "gruvbox_dark" => gruvbox_dark_visuals(),
+        "gruvbox_light" => gruvbox_light_visuals(),
+        "light" => egui::Visuals::light(),
+        _ => egui::Visuals::dark(),
     };
-    
+
     // Apply styling options
     style.visuals.widgets.noninteractive.rounding = egui::Rounding::ZERO;
     style.visuals.widgets.inactive.rounding = egui::Rounding::ZERO;
@@ -104,18 +285,18 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     style.visuals.widgets.open.rounding = egui::Rounding::ZERO;
     style.visuals.window_rounding = egui::Rounding::ZERO;
     style.visuals.menu_rounding = egui::Rounding::ZERO;
-    
+
     let accent_color = config.theme_accent.color();
-    
+
     // Apply theme accent color to selection
     style.visuals.selection.bg_fill = accent_color;
-    
+
     // Apply to hyperlinks
     style.visuals.hyperlink_color = accent_color;
-    
+
     // Apply to cursor stroke
     style.visuals.text_cursor.color = accent_color;
-    
+
     // Set active/hovered widget border accents to make the UI pop
     style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent_color);
     style.visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent_color);
@@ -129,11 +310,17 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     let small_font = egui::FontId::new(font_size * 0.85, egui::FontFamily::Proportional);
 
     style.text_styles.insert(egui::TextStyle::Body, body_font);
-    style.text_styles.insert(egui::TextStyle::Button, button_font);
-    style.text_styles.insert(egui::TextStyle::Heading, heading_font);
-    style.text_styles.insert(egui::TextStyle::Monospace, monospace_font);
+    style
+        .text_styles
+        .insert(egui::TextStyle::Button, button_font);
+    style
+        .text_styles
+        .insert(egui::TextStyle::Heading, heading_font);
+    style
+        .text_styles
+        .insert(egui::TextStyle::Monospace, monospace_font);
     style.text_styles.insert(egui::TextStyle::Small, small_font);
-    
+
     ctx.set_style(style);
 }
 

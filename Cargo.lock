@@ -1137,6 +1137,7 @@ dependencies = [
  "egui_commonmark",
  "egui_extras",
  "ignore",
+ "image 0.25.10",
  "notify",
  "pulldown-cmark",
  "rfd",

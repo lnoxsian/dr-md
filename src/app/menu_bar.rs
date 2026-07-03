@@ -212,16 +212,38 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     ui.horizontal(|ui| {
                         let themes = [
                             ("dark", egui::Color32::from_rgb(30, 30, 30), "Dark Theme"),
-                            ("light", egui::Color32::from_rgb(220, 220, 220), "Light Theme"),
+                            (
+                                "light",
+                                egui::Color32::from_rgb(220, 220, 220),
+                                "Light Theme",
+                            ),
+                            (
+                                "solarized_dark",
+                                egui::Color32::from_rgb(0, 43, 54),
+                                "Solarized Dark",
+                            ),
+                            (
+                                "solarized_light",
+                                egui::Color32::from_rgb(253, 246, 227),
+                                "Solarized Light",
+                            ),
+                            (
+                                "gruvbox_dark",
+                                egui::Color32::from_rgb(40, 40, 40),
+                                "Gruvbox Medium Dark",
+                            ),
+                            (
+                                "gruvbox_light",
+                                egui::Color32::from_rgb(251, 241, 199),
+                                "Gruvbox Light",
+                            ),
                         ];
 
                         for &(theme_id, color, name) in &themes {
                             let is_selected = state.config.theme == theme_id;
 
-                            let (rect, response) = ui.allocate_exact_size(
-                                egui::vec2(16.0, 16.0),
-                                egui::Sense::click(),
-                            );
+                            let (rect, response) = ui
+                                .allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::click());
 
                             let response = response.on_hover_text(name);
 
@@ -246,7 +268,10 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 painter.rect_stroke(
                                     rect.expand(1.0),
                                     egui::Rounding::same(9.0),
-                                    egui::Stroke::new(1.0, ui.visuals().text_color().linear_multiply(0.5)),
+                                    egui::Stroke::new(
+                                        1.0,
+                                        ui.visuals().text_color().linear_multiply(0.5),
+                                    ),
                                 );
                             }
 
@@ -266,10 +291,8 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                             let color = accent.color();
                             let is_selected = state.config.theme_accent == *accent;
 
-                            let (rect, response) = ui.allocate_exact_size(
-                                egui::vec2(16.0, 16.0),
-                                egui::Sense::click(),
-                            );
+                            let (rect, response) = ui
+                                .allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::click());
 
                             let response = response.on_hover_text(accent.name());
 
@@ -294,7 +317,10 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 painter.rect_stroke(
                                     rect.expand(1.0),
                                     egui::Rounding::same(9.0),
-                                    egui::Stroke::new(1.0, ui.visuals().text_color().linear_multiply(0.5)),
+                                    egui::Stroke::new(
+                                        1.0,
+                                        ui.visuals().text_color().linear_multiply(0.5),
+                                    ),
                                 );
                             }
 

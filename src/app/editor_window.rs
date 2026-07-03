@@ -15,7 +15,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                     );
                 }
                 ViewMode::Preview => {
-                    state.preview.show(ui, &mut state.editor, state.config.font_size);
+                    state.preview.show(ui, &mut state.editor, state.config.font_size, &state.config.theme);
                 }
                 ViewMode::Split => {
                     let min_rect = ui.max_rect();
@@ -96,7 +96,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                         // Bottom Pane: Preview
                         let mut bottom_ui = ui.child_ui(bottom_rect, egui::Layout::top_down(egui::Align::Min));
                         bottom_ui.set_clip_rect(bottom_rect);
-                        state.preview.show(&mut bottom_ui, &mut state.editor, state.config.font_size);
+                        state.preview.show(&mut bottom_ui, &mut state.editor, state.config.font_size, &state.config.theme);
                     } else {
                         // Horizontal Split (Side-by-Side)
                         let separator_width = 2.0;
@@ -168,7 +168,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                         // Right Pane: Preview
                         let mut right_ui = ui.child_ui(right_rect, egui::Layout::top_down(egui::Align::Min));
                         right_ui.set_clip_rect(right_rect);
-                        state.preview.show(&mut right_ui, &mut state.editor, state.config.font_size);
+                        state.preview.show(&mut right_ui, &mut state.editor, state.config.font_size, &state.config.theme);
                     }
                 }
             }

@@ -1,5 +1,5 @@
-use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use crate::editor::Editor;
+use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 pub struct MarkdownPreview {
     pub cache: CommonMarkCache,
@@ -16,7 +16,7 @@ impl MarkdownPreview {
         }
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, editor: &mut Editor, font_size: f32) {
+    pub fn show(&mut self, ui: &mut egui::Ui, editor: &mut Editor, font_size: f32, theme: &str) {
         if editor.version != self.last_version {
             self.cached_content = editor.buffer.to_string();
             self.last_version = editor.version;
@@ -50,11 +50,18 @@ impl MarkdownPreview {
 
                         ui.set_style(style);
 
-                        CommonMarkViewer::new("markdown_viewer").show_mut(
-                            ui,
-                            &mut self.cache,
-                            &mut processed,
-                        );
+                        let mut viewer = CommonMarkViewer::new("markdown_viewer");
+                        match theme {
+                            "solarized_dark" => {
+                                viewer = viewer.syntax_theme_dark("Solarized (dark)");
+                            }
+                            "solarized_light" => {
+                                viewer = viewer.syntax_theme_light("Solarized (light)");
+                            }
+                            _ => {}
+                        }
+
+                        viewer.show_mut(ui, &mut self.cache, &mut processed);
 
                         // Add bottom padding inside scroll viewport
                         ui.add_space(100.0);
@@ -65,7 +72,8 @@ impl MarkdownPreview {
             // Apply checkbox changes back to content line by line
             let old_lines: Vec<&str> = processed_old.lines().collect();
             let new_lines: Vec<&str> = processed.lines().collect();
-            let mut orig_lines: Vec<String> = self.cached_content.lines().map(|s| s.to_string()).collect();
+            let mut orig_lines: Vec<String> =
+                self.cached_content.lines().map(|s| s.to_string()).collect();
 
             if old_lines.len() == new_lines.len() && old_lines.len() == orig_lines.len() {
                 for i in 0..old_lines.len() {

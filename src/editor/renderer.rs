@@ -62,7 +62,12 @@ impl EditorRenderer {
                             let new_chars: Vec<char> = self.content_buffer.chars().collect();
                             if prev_start < new_chars.len() {
                                 let typed_char = new_chars[prev_start];
-                                let selected_text: String = self.previous_text.chars().skip(prev_start).take(prev_end - prev_start).collect();
+                                let selected_text: String = self
+                                    .previous_text
+                                    .chars()
+                                    .skip(prev_start)
+                                    .take(prev_end - prev_start)
+                                    .collect();
 
                                 let mut replacement = None;
                                 let mut cursor_offset = 0;
@@ -109,16 +114,30 @@ impl EditorRenderer {
 
                                 if let Some(rep) = replacement {
                                     let mut final_text = String::new();
-                                    final_text.push_str(&self.content_buffer.chars().take(prev_start).collect::<String>());
+                                    final_text.push_str(
+                                        &self
+                                            .content_buffer
+                                            .chars()
+                                            .take(prev_start)
+                                            .collect::<String>(),
+                                    );
                                     final_text.push_str(&rep);
-                                    final_text.push_str(&self.content_buffer.chars().skip(prev_start + 1).collect::<String>());
+                                    final_text.push_str(
+                                        &self
+                                            .content_buffer
+                                            .chars()
+                                            .skip(prev_start + 1)
+                                            .collect::<String>(),
+                                    );
 
                                     self.content_buffer = final_text;
                                     text_changed = true;
 
                                     let new_cursor_idx = prev_start + cursor_offset;
                                     let ccursor = egui::text::CCursor::new(new_cursor_idx);
-                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                    state.cursor.set_char_range(Some(
+                                        egui::text::CCursorRange::two(ccursor, ccursor),
+                                    ));
                                 }
                             }
                         }
@@ -134,17 +153,33 @@ impl EditorRenderer {
                                     // 1. STEP OVER CLOSING BRACKETS
                                     let mut stepped_over = false;
                                     if [')', ']', '}', '"', '\'', '`'].contains(&typed_char) {
-                                        if current_idx < new_chars.len() && new_chars[current_idx] == typed_char {
+                                        if current_idx < new_chars.len()
+                                            && new_chars[current_idx] == typed_char
+                                        {
                                             let mut final_text = String::new();
-                                            final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
-                                            final_text.push_str(&self.content_buffer.chars().skip(current_idx + 1).collect::<String>());
+                                            final_text.push_str(
+                                                &self
+                                                    .content_buffer
+                                                    .chars()
+                                                    .take(current_idx)
+                                                    .collect::<String>(),
+                                            );
+                                            final_text.push_str(
+                                                &self
+                                                    .content_buffer
+                                                    .chars()
+                                                    .skip(current_idx + 1)
+                                                    .collect::<String>(),
+                                            );
 
                                             self.content_buffer = final_text;
                                             text_changed = true;
                                             stepped_over = true;
 
                                             let ccursor = egui::text::CCursor::new(current_idx);
-                                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                            state.cursor.set_char_range(Some(
+                                                egui::text::CCursorRange::two(ccursor, ccursor),
+                                            ));
                                         }
                                     }
 
@@ -163,15 +198,32 @@ impl EditorRenderer {
                                                     && new_chars[prev_idx - 2] == '`'
                                                 {
                                                     let mut final_text = String::new();
-                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .take(current_idx)
+                                                            .collect::<String>(),
+                                                    );
                                                     final_text.push_str("```");
-                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .skip(current_idx)
+                                                            .collect::<String>(),
+                                                    );
 
                                                     self.content_buffer = final_text;
                                                     text_changed = true;
 
-                                                    let ccursor = egui::text::CCursor::new(current_idx);
-                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                    let ccursor =
+                                                        egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(
+                                                        egui::text::CCursorRange::two(
+                                                            ccursor, ccursor,
+                                                        ),
+                                                    ));
                                                 } else {
                                                     autoclose_char = Some('`');
                                                 }
@@ -179,43 +231,94 @@ impl EditorRenderer {
                                             '*' => {
                                                 if prev_idx >= 1 && new_chars[prev_idx - 1] == '*' {
                                                     let mut final_text = String::new();
-                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .take(current_idx)
+                                                            .collect::<String>(),
+                                                    );
                                                     final_text.push_str("**");
-                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .skip(current_idx)
+                                                            .collect::<String>(),
+                                                    );
 
                                                     self.content_buffer = final_text;
                                                     text_changed = true;
 
-                                                    let ccursor = egui::text::CCursor::new(current_idx);
-                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                    let ccursor =
+                                                        egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(
+                                                        egui::text::CCursorRange::two(
+                                                            ccursor, ccursor,
+                                                        ),
+                                                    ));
                                                 }
                                             }
                                             '_' => {
                                                 if prev_idx >= 1 && new_chars[prev_idx - 1] == '_' {
                                                     let mut final_text = String::new();
-                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .take(current_idx)
+                                                            .collect::<String>(),
+                                                    );
                                                     final_text.push_str("__");
-                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .skip(current_idx)
+                                                            .collect::<String>(),
+                                                    );
 
                                                     self.content_buffer = final_text;
                                                     text_changed = true;
 
-                                                    let ccursor = egui::text::CCursor::new(current_idx);
-                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                    let ccursor =
+                                                        egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(
+                                                        egui::text::CCursorRange::two(
+                                                            ccursor, ccursor,
+                                                        ),
+                                                    ));
                                                 }
                                             }
                                             '~' => {
                                                 if prev_idx >= 1 && new_chars[prev_idx - 1] == '~' {
                                                     let mut final_text = String::new();
-                                                    final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .take(current_idx)
+                                                            .collect::<String>(),
+                                                    );
                                                     final_text.push_str("~~");
-                                                    final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+                                                    final_text.push_str(
+                                                        &self
+                                                            .content_buffer
+                                                            .chars()
+                                                            .skip(current_idx)
+                                                            .collect::<String>(),
+                                                    );
 
                                                     self.content_buffer = final_text;
                                                     text_changed = true;
 
-                                                    let ccursor = egui::text::CCursor::new(current_idx);
-                                                    state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                                    let ccursor =
+                                                        egui::text::CCursor::new(current_idx);
+                                                    state.cursor.set_char_range(Some(
+                                                        egui::text::CCursorRange::two(
+                                                            ccursor, ccursor,
+                                                        ),
+                                                    ));
                                                 }
                                             }
                                             _ => {}
@@ -223,15 +326,29 @@ impl EditorRenderer {
 
                                         if let Some(ac) = autoclose_char {
                                             let mut final_text = String::new();
-                                            final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
+                                            final_text.push_str(
+                                                &self
+                                                    .content_buffer
+                                                    .chars()
+                                                    .take(current_idx)
+                                                    .collect::<String>(),
+                                            );
                                             final_text.push_str(&ac.to_string());
-                                            final_text.push_str(&self.content_buffer.chars().skip(current_idx).collect::<String>());
+                                            final_text.push_str(
+                                                &self
+                                                    .content_buffer
+                                                    .chars()
+                                                    .skip(current_idx)
+                                                    .collect::<String>(),
+                                            );
 
                                             self.content_buffer = final_text;
                                             text_changed = true;
 
                                             let ccursor = egui::text::CCursor::new(current_idx);
-                                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                            state.cursor.set_char_range(Some(
+                                                egui::text::CCursorRange::two(ccursor, ccursor),
+                                            ));
                                         }
                                     }
                                 }
@@ -251,16 +368,32 @@ impl EditorRenderer {
                                         _ => {}
                                     }
                                     if let Some(close_char) = matching_close {
-                                        if current_idx < new_chars.len() && new_chars[current_idx] == close_char {
+                                        if current_idx < new_chars.len()
+                                            && new_chars[current_idx] == close_char
+                                        {
                                             let mut final_text = String::new();
-                                            final_text.push_str(&self.content_buffer.chars().take(current_idx).collect::<String>());
-                                            final_text.push_str(&self.content_buffer.chars().skip(current_idx + 1).collect::<String>());
+                                            final_text.push_str(
+                                                &self
+                                                    .content_buffer
+                                                    .chars()
+                                                    .take(current_idx)
+                                                    .collect::<String>(),
+                                            );
+                                            final_text.push_str(
+                                                &self
+                                                    .content_buffer
+                                                    .chars()
+                                                    .skip(current_idx + 1)
+                                                    .collect::<String>(),
+                                            );
 
                                             self.content_buffer = final_text;
                                             text_changed = true;
 
                                             let ccursor = egui::text::CCursor::new(current_idx);
-                                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                                            state.cursor.set_char_range(Some(
+                                                egui::text::CCursorRange::two(ccursor, ccursor),
+                                            ));
                                         }
                                     }
                                 }
@@ -313,7 +446,12 @@ impl EditorRenderer {
                                 let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
                                     let default_color = ui.style().visuals.text_color();
                                     let link_color = ui.style().visuals.hyperlink_color;
-                                    let mut job = create_layout_job(text, font_size, default_color, link_color);
+                                    let mut job = create_layout_job(
+                                        text,
+                                        font_size,
+                                        default_color,
+                                        link_color,
+                                    );
                                     job.wrap.max_width = wrap_width.min(text_wrap_width);
                                     let galley = ui.fonts(|f| f.layout_job(job));
 
@@ -339,16 +477,22 @@ impl EditorRenderer {
                                         egui::Sense::hover(),
                                     );
 
-                                    let text_edit = egui::TextEdit::multiline(&mut self.content_buffer)
-                                        .id(egui::Id::new("editor_text_edit"))
-                                        .font(FontId::monospace(font_size))
-                                        .frame(false)
-                                        .layouter(&mut layouter)
-                                        .desired_width(f32::INFINITY);
+                                    let text_edit =
+                                        egui::TextEdit::multiline(&mut self.content_buffer)
+                                            .id(egui::Id::new("editor_text_edit"))
+                                            .font(FontId::monospace(font_size))
+                                            .frame(false)
+                                            .layouter(&mut layouter)
+                                            .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
                                     let edit_res = edit_output.response;
 
-                                    let text_changed = self.process_autoclosing(ui.ctx(), edit_res.id, edit_output.state, edit_res.changed());
+                                    let text_changed = self.process_autoclosing(
+                                        ui.ctx(),
+                                        edit_res.id,
+                                        edit_output.state,
+                                        edit_res.changed(),
+                                    );
 
                                     (gutter_rect, edit_res, text_changed)
                                 })
@@ -398,7 +542,8 @@ impl EditorRenderer {
                             let mut layouter = |ui: &egui::Ui, text: &str, wrap_width: f32| {
                                 let default_color = ui.style().visuals.text_color();
                                 let link_color = ui.style().visuals.hyperlink_color;
-                                let mut job = create_layout_job(text, font_size, default_color, link_color);
+                                let mut job =
+                                    create_layout_job(text, font_size, default_color, link_color);
                                 job.wrap.max_width = wrap_width.min(text_wrap_width);
                                 ui.fonts(|f| f.layout_job(job))
                             };
@@ -412,7 +557,12 @@ impl EditorRenderer {
                             let edit_output = text_edit.show(ui);
                             let edit_res = edit_output.response;
 
-                            let text_changed = self.process_autoclosing(ui.ctx(), edit_res.id, edit_output.state, edit_res.changed());
+                            let text_changed = self.process_autoclosing(
+                                ui.ctx(),
+                                edit_res.id,
+                                edit_output.state,
+                                edit_res.changed(),
+                            );
 
                             // Add bottom padding inside scroll viewport
                             ui.add_space(100.0);
@@ -429,7 +579,12 @@ impl EditorRenderer {
     }
 }
 
-fn create_layout_job(text: &str, font_size: f32, text_color: Color32, link_color: Color32) -> LayoutJob {
+fn create_layout_job(
+    text: &str,
+    font_size: f32,
+    text_color: Color32,
+    link_color: Color32,
+) -> LayoutJob {
     let mut job = LayoutJob::default();
     let normal_font = FontId::monospace(font_size);
     let heading_font = FontId::monospace(font_size);

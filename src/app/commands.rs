@@ -1,7 +1,6 @@
 use crate::app::state::AppState;
 use std::path::PathBuf;
 
-
 pub fn execute_open_file(state: &mut AppState, path: PathBuf) {
     state.vault.active_file = Some(path.clone());
     if let Err(e) = state.editor.load_file(path) {

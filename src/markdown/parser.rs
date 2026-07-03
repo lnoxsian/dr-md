@@ -58,5 +58,4 @@ mod tests {
         assert_eq!(preprocess_wiki_links("[[hello]"), "[[hello]");
         assert_eq!(preprocess_wiki_links("hello [ world"), "hello [ world");
     }
-
 }
