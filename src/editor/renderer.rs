@@ -150,9 +150,56 @@ impl EditorRenderer {
                                 if prev_idx < new_chars.len() {
                                     let typed_char = new_chars[prev_idx];
 
+                                    // 0. HANDLE ENTER BETWEEN BRACKETS AND QUOTES
+                                    let mut enter_between_pairs = false;
+                                    if typed_char == '\n' {
+                                        if prev_idx > 0 && prev_idx + 1 < new_chars.len() {
+                                            let left = new_chars[prev_idx - 1];
+                                            let right = new_chars[prev_idx + 1];
+                                            let is_pair = [
+                                                ('{', '}'),
+                                                ('(', ')'),
+                                                ('[', ']'),
+                                                ('"', '"'),
+                                                ('\'', '\''),
+                                                ('`', '`'),
+                                            ]
+                                            .iter()
+                                            .any(|&(l, r)| l == left && r == right);
+
+                                            if is_pair {
+                                                let mut final_text = String::new();
+                                                final_text.push_str(
+                                                    &self
+                                                        .content_buffer
+                                                        .chars()
+                                                        .take(current_idx)
+                                                        .collect::<String>(),
+                                                );
+                                                final_text.push_str("\n");
+                                                final_text.push_str(
+                                                    &self
+                                                        .content_buffer
+                                                        .chars()
+                                                        .skip(current_idx)
+                                                        .collect::<String>(),
+                                                );
+
+                                                self.content_buffer = final_text;
+                                                text_changed = true;
+                                                enter_between_pairs = true;
+
+                                                let ccursor = egui::text::CCursor::new(current_idx);
+                                                state.cursor.set_char_range(Some(
+                                                    egui::text::CCursorRange::two(ccursor, ccursor),
+                                                ));
+                                            }
+                                        }
+                                    }
+
                                     // 1. STEP OVER CLOSING BRACKETS
                                     let mut stepped_over = false;
-                                    if [')', ']', '}', '"', '\'', '`'].contains(&typed_char) {
+                                    if !enter_between_pairs && [')', ']', '}', '"', '\'', '`'].contains(&typed_char) {
                                         if current_idx < new_chars.len()
                                             && new_chars[current_idx] == typed_char
                                         {
@@ -183,7 +230,7 @@ impl EditorRenderer {
                                         }
                                     }
 
-                                    if !stepped_over {
+                                    if !enter_between_pairs && !stepped_over {
                                         // 2. AUTOCLOSE OPENING BRACKETS
                                         let mut autoclose_char = None;
                                         match typed_char {
@@ -730,3 +777,54 @@ fn create_layout_job(
     }
     job
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_autoclosing_pairs() {
+        let pairs = [
+            ("{}", "{\n\n}"),
+            ("()", "(\n\n)"),
+            ("[]", "[\n\n]"),
+            ("\"\"", "\"\n\n\""),
+            ("''", "'\n\n'"),
+            ("``", "`\n\n`"),
+        ];
+
+        for (input_pair, expected_output) in pairs {
+            let mut renderer = EditorRenderer::new();
+            // Set up the state before enter: content_buffer has the pair and cursor is between them (index 1)
+            renderer.content_buffer = input_pair.to_string();
+            renderer.previous_text = input_pair.to_string();
+            
+            let ccursor = egui::text::CCursor::new(1);
+            renderer.previous_cursor = Some(egui::text::CCursorRange::two(ccursor, ccursor));
+
+            // Mock state for typing a newline:
+            // content_buffer becomes "{left}\n{right}" and cursor is at index 2.
+            let left_char = input_pair.chars().next().unwrap();
+            let right_char = input_pair.chars().nth(1).unwrap();
+            renderer.content_buffer = format!("{}\n{}", left_char, right_char);
+            
+            let ctx = egui::Context::default();
+            let id = egui::Id::new("test_editor");
+            let mut state = egui::widgets::text_edit::TextEditState::default();
+            let new_ccursor = egui::text::CCursor::new(2);
+            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(new_ccursor, new_ccursor)));
+
+            let changed = renderer.process_autoclosing(&ctx, id, state, true);
+            
+            assert!(changed, "Failed for pair: {}", input_pair);
+            assert_eq!(renderer.content_buffer, expected_output, "Incorrect content buffer for pair: {}", input_pair);
+            
+            // Load stored state from context to verify cursor position
+            let updated_state = egui::widgets::text_edit::TextEditState::load(&ctx, id).unwrap();
+            let updated_range = updated_state.cursor.char_range().unwrap();
+            assert_eq!(updated_range.primary.index, 2, "Incorrect primary cursor index for pair: {}", input_pair);
+            assert_eq!(updated_range.secondary.index, 2, "Incorrect secondary cursor index for pair: {}", input_pair);
+        }
+    }
+}
+

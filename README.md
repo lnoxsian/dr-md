@@ -1,3 +1,13 @@
+<p align="center">
+  <a href="https://github.com/lnoxsian/dr-md">
+    <img src="https://raw.githubusercontent.com/lnoxsian/dr-md/main/assets/icons/dr-md.png" alt="dr-md logo" width="200">
+  </a>
+</p>
+<p align="center">
+  <h1 align="center"><text>Dr.md</text></h1>  
+</p>
+
+
 # dr.md
 
 dr.md is a native Linux Markdown editor and previewer built with Rust, `egui`, and `eframe`. It is designed to stay lightweight while still covering the day-to-day workflow of editing notes, browsing a folder-based vault, previewing Markdown, and keeping the UI responsive.

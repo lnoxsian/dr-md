@@ -27,6 +27,7 @@ pub struct FileTree {
     pub last_hovered_folder: Option<PathBuf>,
     pub drag_select_rect: Option<egui::Rect>,
     pub initial_selected_items: HashSet<PathBuf>,
+    pub drag_started_on_item: bool,
 }
 
 impl FileTree {
@@ -43,6 +44,7 @@ impl FileTree {
             last_hovered_folder: None,
             drag_select_rect: None,
             initial_selected_items: HashSet::new(),
+            drag_started_on_item: false,
         }
     }
 
@@ -72,7 +74,11 @@ impl FileTree {
 
         // Handle marquee drag selection input
         let pointer = ui.input(|i| i.pointer.clone());
-        if pointer.any_down() && !self.focus_input && self.dragged_items.is_empty() {
+        if !pointer.any_down() {
+            self.drag_started_on_item = false;
+        }
+
+        if pointer.any_down() && !self.focus_input && self.dragged_items.is_empty() && !self.drag_started_on_item {
             if pointer.is_decidedly_dragging() {
                 if let Some(press_origin) = pointer.press_origin() {
                     if ui.clip_rect().contains(press_origin) {
@@ -299,6 +305,12 @@ impl FileTree {
             egui::Sense::click_and_drag(),
         );
 
+        if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
+            if header_response.rect.contains(press_origin) {
+                self.drag_started_on_item = true;
+            }
+        }
+
         // Check marquee selection intersection
         if let Some(select_rect) = self.drag_select_rect {
             if select_rect.intersects(header_response.rect) {
@@ -380,6 +392,12 @@ impl FileTree {
         let is_active = self.selected_items.contains(&entry_path);
         let label = ui.selectable_label(is_active, file_name);
         let label_response = ui.interact(label.rect, label.id, egui::Sense::click_and_drag());
+
+        if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
+            if label_response.rect.contains(press_origin) {
+                self.drag_started_on_item = true;
+            }
+        }
 
         // Check marquee selection intersection
         if let Some(select_rect) = self.drag_select_rect {
@@ -802,3 +820,90 @@ impl FileTree {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_tree_drag_started_on_item_prevents_marquee() {
+        let mut tree = FileTree::new();
+        let file1 = PathBuf::from("file1.md");
+        let file2 = PathBuf::from("file2.md");
+        tree.selected_items.insert(file1.clone());
+        tree.selected_items.insert(file2.clone());
+        
+        // 1. With drag_started_on_item = true, dragging should NOT start marquee select or clear selection
+        tree.drag_started_on_item = true;
+
+        let ctx = egui::Context::default();
+        
+        // Frame 1: Press
+        let mut raw_input1 = egui::RawInput::default();
+        raw_input1.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
+        raw_input1.events.push(egui::Event::PointerButton {
+            pos: egui::pos2(10.0, 10.0),
+            button: egui::PointerButton::Primary,
+            pressed: true,
+            modifiers: Default::default(),
+        });
+        let _ = ctx.run(raw_input1, |_| {});
+
+        // Frame 2: Move and Show
+        let mut raw_input2 = egui::RawInput::default();
+        raw_input2.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
+        raw_input2.events.push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0))); // > 3.0 delta
+
+        let _ = ctx.run(raw_input2, |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                // Call show
+                let mut active_file = None;
+                let root = PathBuf::from("/non_existent_directory_for_test");
+                tree.show(ui, &root, &mut active_file);
+            });
+        });
+
+        // Marquee select rect should NOT be active
+        assert!(tree.drag_select_rect.is_none());
+        // Selection should NOT be cleared
+        assert_eq!(tree.selected_items.len(), 2);
+        assert!(tree.selected_items.contains(&file1));
+        assert!(tree.selected_items.contains(&file2));
+
+        // 2. With drag_started_on_item = false, dragging SHOULD start marquee select and clear selection
+        tree.drag_started_on_item = false;
+        
+        // Reset ctx for a clean test state
+        let ctx = egui::Context::default();
+        
+        // Frame 1: Press
+        let mut raw_input1 = egui::RawInput::default();
+        raw_input1.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
+        raw_input1.events.push(egui::Event::PointerButton {
+            pos: egui::pos2(10.0, 10.0),
+            button: egui::PointerButton::Primary,
+            pressed: true,
+            modifiers: Default::default(),
+        });
+        let _ = ctx.run(raw_input1, |_| {});
+
+        // Frame 2: Move and Show
+        let mut raw_input2 = egui::RawInput::default();
+        raw_input2.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
+        raw_input2.events.push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0)));
+
+        let _ = ctx.run(raw_input2, |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let mut active_file = None;
+                let root = PathBuf::from("/non_existent_directory_for_test");
+                tree.show(ui, &root, &mut active_file);
+            });
+        });
+
+        // Marquee select rect SHOULD be active
+        assert!(tree.drag_select_rect.is_some());
+        // Selection SHOULD be cleared since Ctrl was not pressed
+        assert!(tree.selected_items.is_empty());
+    }
+}
+
