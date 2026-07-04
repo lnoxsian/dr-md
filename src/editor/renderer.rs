@@ -494,6 +494,19 @@ impl EditorRenderer {
         font_size: f32,
         line_numbers: bool,
     ) {
+        let mut previous_selection = None;
+        if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(
+            ui.ctx(),
+            egui::Id::new("editor_text_edit"),
+        ) {
+            if let Some(range) = text_state.cursor.char_range() {
+                if range.primary.index != range.secondary.index {
+                    previous_selection = Some(range);
+                }
+            }
+        }
+        let is_right_click_pressed = ui.input(|i| i.pointer.secondary_pressed());
+
         self.sync_from_editor(editor, ui.ctx());
 
         if line_numbers {
@@ -556,6 +569,25 @@ impl EditorRenderer {
                                             .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
                                     let edit_res = edit_output.response;
+                                    let content_buf = &mut self.content_buffer;
+                                    edit_res.clone().context_menu(|ui| {
+                                        Self::render_context_menu(ui, editor, content_buf);
+                                    });
+
+                                    if is_right_click_pressed && edit_res.contains_pointer() {
+                                        if let Some(prev_range) = previous_selection {
+                                            if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                                                ui.ctx(),
+                                                egui::Id::new("editor_text_edit"),
+                                            ) {
+                                                text_state.cursor.set_char_range(Some(prev_range));
+                                                text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                                                editor.cursor.char_idx = prev_range.primary.index;
+                                                editor.selection.anchor = prev_range.secondary.index;
+                                                editor.selection.head = prev_range.primary.index;
+                                            }
+                                        }
+                                    }
 
                                     let text_changed = self.process_autoclosing(
                                         ui.ctx(),
@@ -626,6 +658,25 @@ impl EditorRenderer {
                                 .desired_width(f32::INFINITY);
                             let edit_output = text_edit.show(ui);
                             let edit_res = edit_output.response;
+                            let content_buf = &mut self.content_buffer;
+                            edit_res.clone().context_menu(|ui| {
+                                Self::render_context_menu(ui, editor, content_buf);
+                            });
+
+                            if is_right_click_pressed && edit_res.contains_pointer() {
+                                if let Some(prev_range) = previous_selection {
+                                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                                        ui.ctx(),
+                                        egui::Id::new("editor_text_edit"),
+                                    ) {
+                                        text_state.cursor.set_char_range(Some(prev_range));
+                                        text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                                        editor.cursor.char_idx = prev_range.primary.index;
+                                        editor.selection.anchor = prev_range.secondary.index;
+                                        editor.selection.head = prev_range.primary.index;
+                                    }
+                                }
+                            }
 
                             let text_changed = self.process_autoclosing(
                                 ui.ctx(),
@@ -645,6 +696,143 @@ impl EditorRenderer {
             if output.inner.0.changed() || output.inner.1 {
                 self.sync_to_editor(editor, ui.ctx());
             }
+        }
+    }
+
+    fn sync_cursor(ctx: &egui::Context, editor: &mut Editor) {
+        if let Some(text_state) =
+            egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit"))
+        {
+            if let Some(range) = text_state.cursor.char_range() {
+                editor.cursor.char_idx = range.primary.index;
+                editor.selection.anchor = range.secondary.index;
+                editor.selection.head = range.primary.index;
+            }
+        }
+    }
+
+    fn render_context_menu(
+        ui: &mut egui::Ui,
+        editor: &mut Editor,
+        content_buffer: &mut String,
+    ) {
+        if ui.button("Cut").clicked() {
+            if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                ui.ctx(),
+                egui::Id::new("editor_text_edit"),
+            ) {
+                if let Some(range) = text_state.cursor.char_range() {
+                    let start = range.primary.index.min(range.secondary.index);
+                    let end = range.primary.index.max(range.secondary.index);
+                    let sorted = start..end;
+                    if !sorted.is_empty() {
+                        let text_to_copy =
+                            editor.buffer.rope.slice(sorted.clone()).to_string();
+                        ui.ctx().copy_text(text_to_copy);
+
+                        editor.buffer.remove(sorted.start, sorted.end);
+                        editor.cursor.char_idx = sorted.start;
+                        editor.selection.clear(sorted.start);
+                        editor.is_dirty = true;
+
+                        *content_buffer = editor.buffer.to_string();
+
+                        let cursor = egui::text::CCursor::new(sorted.start);
+                        text_state.cursor.set_char_range(Some(
+                            egui::text::CCursorRange::two(cursor, cursor),
+                        ));
+                        text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                    }
+                }
+            }
+            ui.close_menu();
+        }
+        if ui.button("Copy").clicked() {
+            if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(
+                ui.ctx(),
+                egui::Id::new("editor_text_edit"),
+            ) {
+                if let Some(range) = text_state.cursor.char_range() {
+                    let start = range.primary.index.min(range.secondary.index);
+                    let end = range.primary.index.max(range.secondary.index);
+                    let sorted = start..end;
+                    if !sorted.is_empty() {
+                        let text_to_copy =
+                            editor.buffer.rope.slice(sorted).to_string();
+                        ui.ctx().copy_text(text_to_copy);
+                    }
+                }
+            }
+            ui.close_menu();
+        }
+        if ui.button("Paste").clicked() {
+            if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                let paste_text = clipboard.get_text().unwrap_or_default();
+                if !paste_text.is_empty() {
+                    if let Some(mut text_state) =
+                        egui::widgets::text_edit::TextEditState::load(
+                            ui.ctx(),
+                            egui::Id::new("editor_text_edit"),
+                        )
+                    {
+                        let range =
+                            text_state.cursor.char_range().unwrap_or_else(|| {
+                                let len = editor.buffer.len_chars();
+                                let cursor = egui::text::CCursor::new(len);
+                                egui::text::CCursorRange::two(cursor, cursor)
+                            });
+                        let start = range.primary.index.min(range.secondary.index);
+                        let end = range.primary.index.max(range.secondary.index);
+                        let sorted = start..end;
+
+                        if !sorted.is_empty() {
+                            editor.buffer.remove(sorted.start, sorted.end);
+                        }
+
+                        editor.buffer.insert(sorted.start, &paste_text);
+                        editor.cursor.char_idx =
+                            sorted.start + paste_text.chars().count();
+                        editor.selection.clear(editor.cursor.char_idx);
+                        editor.is_dirty = true;
+
+                        *content_buffer = editor.buffer.to_string();
+
+                        let cursor =
+                            egui::text::CCursor::new(editor.cursor.char_idx);
+                        text_state.cursor.set_char_range(Some(
+                            egui::text::CCursorRange::two(cursor, cursor),
+                        ));
+                        text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                    }
+                }
+            }
+            ui.close_menu();
+        }
+        ui.separator();
+        if ui.button("Bold").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("bold");
+            ui.close_menu();
+        }
+        if ui.button("Italic").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("italic");
+            ui.close_menu();
+        }
+        if ui.button("Link").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("link");
+            ui.close_menu();
+        }
+        if ui.button("Code Block").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("code");
+            ui.close_menu();
+        }
+        if ui.button("Checkbox").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.insert_text("- [ ] ");
+            ui.close_menu();
         }
     }
 }

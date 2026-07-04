@@ -144,19 +144,19 @@ impl eframe::App for DoctorMarkdownApp {
                     }
                 }
                 ShortcutAction::Bold => {
-                    self.state.editor.insert_text("****");
+                    self.state.editor.format_selection("bold");
                 }
                 ShortcutAction::Italic => {
-                    self.state.editor.insert_text("**");
+                    self.state.editor.format_selection("italic");
                 }
                 ShortcutAction::Link => {
-                    self.state.editor.insert_text("[](url)");
+                    self.state.editor.format_selection("link");
                 }
                 ShortcutAction::CodeBlock => {
-                    self.state.editor.insert_text("```\n\n```");
+                    self.state.editor.format_selection("code");
                 }
                 ShortcutAction::Checkbox => {
-                    self.state.editor.insert_text("- [ ] ");
+                    self.state.editor.format_selection("checkbox");
                 }
                 _ => {}
             }

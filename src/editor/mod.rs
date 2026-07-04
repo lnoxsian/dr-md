@@ -98,6 +98,75 @@ impl Editor {
         self.version += 1;
     }
 
+    pub fn format_selection(&mut self, format_type: &str) {
+        let current_text = self.buffer.to_string();
+        self.undo_stack.push(current_text);
+
+        if let Some(range) = self.selection.range() {
+            let selected_text = self.buffer.rope.slice(range.start..range.end).to_string();
+            let new_text = match format_type {
+                "bold" => format!("**{}**", selected_text),
+                "italic" => format!("*{}*", selected_text),
+                "code" => {
+                    if selected_text.contains('\n') {
+                        format!("```\n{}\n```", selected_text)
+                    } else {
+                        format!("`{}`", selected_text)
+                    }
+                }
+                "link" => format!("[{}](url)", selected_text),
+                "checkbox" => {
+                    if selected_text.contains('\n') {
+                        let mut lines = Vec::new();
+                        for line in selected_text.lines() {
+                            if line.trim().starts_with("- [ ] ") {
+                                lines.push(line.to_string());
+                            } else {
+                                lines.push(format!("- [ ] {}", line));
+                            }
+                        }
+                        lines.join("\n")
+                    } else {
+                        if selected_text.trim().starts_with("- [ ] ") {
+                            selected_text
+                        } else {
+                            format!("- [ ] {}", selected_text)
+                        }
+                    }
+                }
+                _ => selected_text,
+            };
+
+            self.buffer.remove(range.start, range.end);
+            self.buffer.insert(range.start, &new_text);
+            self.cursor.char_idx = range.start + new_text.chars().count();
+            self.selection.clear(self.cursor.char_idx);
+        } else {
+            let placeholder = match format_type {
+                "bold" => "****",
+                "italic" => "**",
+                "code" => "```\n\n```",
+                "link" => "[](url)",
+                "checkbox" => "- [ ] ",
+                _ => "",
+            };
+            self.buffer.insert(self.cursor.char_idx, placeholder);
+
+            let offset = match format_type {
+                "bold" => 2,
+                "italic" => 1,
+                "code" => 4, // places cursor inside the code block
+                "link" => 1, // inside the bracket
+                "checkbox" => 6, // "- [ ] " has 6 characters
+                _ => placeholder.chars().count(),
+            };
+            self.cursor.char_idx += offset;
+            self.selection.clear(self.cursor.char_idx);
+        }
+        self.is_dirty = true;
+        self.version += 1;
+    }
+
     pub fn delete_backward(&mut self) {
         if let Some(range) = self.selection.range() {
             let current_text = self.buffer.to_string();

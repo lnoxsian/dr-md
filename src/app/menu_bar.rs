@@ -188,27 +188,27 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     ui.separator();
                     if ui.button("Bold (Ctrl+B)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.insert_text("****");
+                        state.editor.format_selection("bold");
                         ui.close_menu();
                     }
                     if ui.button("Italic (Ctrl+I)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.insert_text("**");
+                        state.editor.format_selection("italic");
                         ui.close_menu();
                     }
                     if ui.button("Link (Ctrl+K)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.insert_text("[](url)");
+                        state.editor.format_selection("link");
                         ui.close_menu();
                     }
                     if ui.button("Code Block (Ctrl+Shift+C)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.insert_text("```\n\n```");
+                        state.editor.format_selection("code");
                         ui.close_menu();
                     }
                     if ui.button("Checkbox (Ctrl+L)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.insert_text("- [ ] ");
+                        state.editor.format_selection("checkbox");
                         ui.close_menu();
                     }
                 });
