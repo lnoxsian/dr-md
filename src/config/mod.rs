@@ -60,6 +60,20 @@ impl ThemeAccent {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum CursorStyle {
+    IBeam,
+    Block,
+    Underline,
+}
+
+impl Default for CursorStyle {
+    fn default() -> Self {
+        Self::IBeam
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct AppConfig {
@@ -70,6 +84,7 @@ pub struct AppConfig {
     pub autosave: bool,
     pub tab_width: usize,
     pub last_opened_folder: Option<String>,
+    pub cursor_style: CursorStyle,
 }
 
 impl Default for AppConfig {
@@ -82,6 +97,7 @@ impl Default for AppConfig {
             autosave: true,
             tab_width: 4,
             last_opened_folder: None,
+            cursor_style: CursorStyle::default(),
         }
     }
 }
@@ -308,7 +324,11 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     style.visuals.hyperlink_color = accent_color;
 
     // Apply to cursor stroke
-    style.visuals.text_cursor.color = accent_color;
+    if config.cursor_style != CursorStyle::IBeam {
+        style.visuals.text_cursor.color = egui::Color32::TRANSPARENT;
+    } else {
+        style.visuals.text_cursor.color = accent_color;
+    }
 
     // Set active/hovered widget border accents to make the UI pop
     style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent_color);

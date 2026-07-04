@@ -493,6 +493,7 @@ impl EditorRenderer {
         editor: &mut Editor,
         font_size: f32,
         line_numbers: bool,
+        cursor_style: crate::config::CursorStyle,
     ) {
         let mut previous_selection = None;
         if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(
@@ -516,30 +517,7 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    let is_focused = ui.memory(|mem| mem.has_focus(egui::Id::new("editor_text_edit")));
-                    let pointer = ui.input(|i| i.pointer.clone());
-                    if is_focused && pointer.primary_down() {
-                        if let Some(pos) = pointer.latest_pos() {
-                            let clip_rect = ui.clip_rect();
-                             if pos.y < clip_rect.min.y {
-                                let delta = ((clip_rect.min.y - pos.y) * 0.15).min(10.0);
-                                let target_rect = egui::Rect::from_min_max(
-                                    egui::pos2(clip_rect.min.x, clip_rect.min.y - delta - 2.0),
-                                    egui::pos2(clip_rect.max.x, clip_rect.min.y),
-                                );
-                                ui.scroll_to_rect(target_rect, Some(egui::Align::TOP));
-                                ui.ctx().request_repaint();
-                            } else if pos.y > clip_rect.max.y {
-                                let delta = ((pos.y - clip_rect.max.y) * 0.15).min(10.0);
-                                let target_rect = egui::Rect::from_min_max(
-                                    egui::pos2(clip_rect.min.x, clip_rect.max.y),
-                                    egui::pos2(clip_rect.max.x, clip_rect.max.y + delta + 2.0),
-                                );
-                                ui.scroll_to_rect(target_rect, Some(egui::Align::BOTTOM));
-                                ui.ctx().request_repaint();
-                            }
-                        }
-                    }
+                    self.handle_drag_autoscroll(ui);
 
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 8.0))
@@ -593,11 +571,13 @@ impl EditorRenderer {
                                             .layouter(&mut layouter)
                                             .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
-                                    let edit_res = edit_output.response;
+                                    let edit_res = edit_output.response.clone();
                                     let content_buf = &mut self.content_buffer;
                                     edit_res.clone().context_menu(|ui| {
                                         Self::render_context_menu(ui, editor, content_buf);
                                     });
+
+                                    self.draw_custom_cursor(ui, editor, &edit_output, cursor_style, font_size);
 
                                     if is_right_click_pressed && edit_res.contains_pointer() {
                                         if let Some(prev_range) = previous_selection {
@@ -661,30 +641,7 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    let is_focused = ui.memory(|mem| mem.has_focus(egui::Id::new("editor_text_edit")));
-                    let pointer = ui.input(|i| i.pointer.clone());
-                    if is_focused && pointer.primary_down() {
-                        if let Some(pos) = pointer.latest_pos() {
-                            let clip_rect = ui.clip_rect();
-                            if pos.y < clip_rect.min.y {
-                                let delta = ((clip_rect.min.y - pos.y) * 0.15).min(10.0);
-                                let target_rect = egui::Rect::from_min_max(
-                                    egui::pos2(clip_rect.min.x, clip_rect.min.y - delta - 2.0),
-                                    egui::pos2(clip_rect.max.x, clip_rect.min.y),
-                                );
-                                ui.scroll_to_rect(target_rect, Some(egui::Align::TOP));
-                                ui.ctx().request_repaint();
-                            } else if pos.y > clip_rect.max.y {
-                                let delta = ((pos.y - clip_rect.max.y) * 0.15).min(10.0);
-                                let target_rect = egui::Rect::from_min_max(
-                                    egui::pos2(clip_rect.min.x, clip_rect.max.y),
-                                    egui::pos2(clip_rect.max.x, clip_rect.max.y + delta + 2.0),
-                                );
-                                ui.scroll_to_rect(target_rect, Some(egui::Align::BOTTOM));
-                                ui.ctx().request_repaint();
-                            }
-                        }
-                    }
+                    self.handle_drag_autoscroll(ui);
 
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 8.0))
@@ -707,11 +664,13 @@ impl EditorRenderer {
                                 .layouter(&mut layouter)
                                 .desired_width(f32::INFINITY);
                             let edit_output = text_edit.show(ui);
-                            let edit_res = edit_output.response;
+                            let edit_res = edit_output.response.clone();
                             let content_buf = &mut self.content_buffer;
                             edit_res.clone().context_menu(|ui| {
                                 Self::render_context_menu(ui, editor, content_buf);
                             });
+
+                            self.draw_custom_cursor(ui, editor, &edit_output, cursor_style, font_size);
 
                             if is_right_click_pressed && edit_res.contains_pointer() {
                                 if let Some(prev_range) = previous_selection {
@@ -875,6 +834,11 @@ impl EditorRenderer {
             editor.format_selection("link");
             ui.close_menu();
         }
+        if ui.button("Comment").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("comment");
+            ui.close_menu();
+        }
         ui.separator();
         // Paragraph Operations
         if ui.button("Code Block").clicked() {
@@ -896,6 +860,101 @@ impl EditorRenderer {
             Self::sync_cursor(ui.ctx(), editor);
             editor.format_selection("bulleted_list");
             ui.close_menu();
+        }
+        if ui.button("Blockquote").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("indent");
+            ui.close_menu();
+        }
+    }
+
+    fn handle_drag_autoscroll(&self, ui: &mut egui::Ui) {
+        let is_focused = ui.memory(|mem| mem.has_focus(egui::Id::new("editor_text_edit")));
+        let pointer = ui.input(|i| i.pointer.clone());
+        if is_focused && pointer.primary_down() {
+            if let Some(pos) = pointer.latest_pos() {
+                let clip_rect = ui.clip_rect();
+                if pos.y < clip_rect.min.y {
+                    let delta = ((clip_rect.min.y - pos.y) * 0.15).min(10.0);
+                    let target_rect = egui::Rect::from_min_max(
+                        egui::pos2(clip_rect.min.x, clip_rect.min.y - delta - 2.0),
+                        egui::pos2(clip_rect.max.x, clip_rect.min.y),
+                    );
+                    ui.scroll_to_rect(target_rect, Some(egui::Align::TOP));
+                    ui.ctx().request_repaint();
+                } else if pos.y > clip_rect.max.y {
+                    let delta = ((pos.y - clip_rect.max.y) * 0.15).min(10.0);
+                    let target_rect = egui::Rect::from_min_max(
+                        egui::pos2(clip_rect.min.x, clip_rect.max.y),
+                        egui::pos2(clip_rect.max.x, clip_rect.max.y + delta + 2.0),
+                    );
+                    ui.scroll_to_rect(target_rect, Some(egui::Align::BOTTOM));
+                    ui.ctx().request_repaint();
+                }
+            }
+        }
+    }
+
+    fn draw_custom_cursor(
+        &self,
+        ui: &mut egui::Ui,
+        editor: &Editor,
+        edit_output: &egui::text_edit::TextEditOutput,
+        cursor_style: crate::config::CursorStyle,
+        font_size: f32,
+    ) {
+        let is_focused = ui.memory(|mem| mem.has_focus(edit_output.response.id));
+        if is_focused && cursor_style != crate::config::CursorStyle::IBeam {
+            if let Some(range) = edit_output.state.cursor.char_range() {
+                if range.primary.index == range.secondary.index {
+                    let ccursor = range.primary;
+                    let pos_start = edit_output.galley.pos_from_ccursor(ccursor);
+                    let pos_end = edit_output.galley.pos_from_ccursor(egui::text::CCursor::new(ccursor.index + 1));
+                    let char_width = if pos_end.min.y == pos_start.min.y {
+                        (pos_end.min.x - pos_start.min.x).max(6.0)
+                    } else {
+                        font_size * 0.6
+                    };
+                    let accent_color = ui.visuals().selection.stroke.color;
+                    let rect = match cursor_style {
+                        crate::config::CursorStyle::Block => {
+                            egui::Rect::from_min_max(
+                                pos_start.min,
+                                egui::pos2(pos_start.min.x + char_width, pos_start.max.y),
+                            )
+                        }
+                        crate::config::CursorStyle::Underline => {
+                            egui::Rect::from_min_max(
+                                egui::pos2(pos_start.min.x, pos_start.max.y - 2.0),
+                                egui::pos2(pos_start.min.x + char_width, pos_start.max.y),
+                            )
+                        }
+                        _ => pos_start,
+                    };
+                    let color = match cursor_style {
+                        crate::config::CursorStyle::Block => accent_color,
+                        _ => accent_color,
+                    };
+                    let screen_rect = rect.translate(edit_output.galley_pos.to_vec2());
+                    ui.painter().rect_filled(screen_rect, 0.0, color);
+
+                    if cursor_style == crate::config::CursorStyle::Block {
+                        if let Some(c) = editor.buffer.rope.get_char(ccursor.index) {
+                            if c != '\n' && c != '\r' && c != '\t' {
+                                let text_color = ui.visuals().extreme_bg_color;
+                                let font_id = egui::FontId::monospace(font_size);
+                                ui.painter().text(
+                                    screen_rect.min,
+                                    egui::Align2::LEFT_TOP,
+                                    c.to_string(),
+                                    font_id,
+                                    text_color,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

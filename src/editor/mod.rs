@@ -119,7 +119,9 @@ impl Editor {
                     if selected_text.contains('\n') {
                         let mut lines = Vec::new();
                         for line in selected_text.lines() {
-                            if line.trim().starts_with("- [ ] ") {
+                            if line.trim().is_empty() {
+                                lines.push(line.to_string());
+                            } else if line.trim().starts_with("- [ ] ") {
                                 lines.push(line.to_string());
                             } else {
                                 lines.push(format!("- [ ] {}", line));
@@ -127,7 +129,9 @@ impl Editor {
                         }
                         lines.join("\n")
                     } else {
-                        if selected_text.trim().starts_with("- [ ] ") {
+                        if selected_text.trim().is_empty() {
+                            selected_text
+                        } else if selected_text.trim().starts_with("- [ ] ") {
                             selected_text
                         } else {
                             format!("- [ ] {}", selected_text)
@@ -137,23 +141,69 @@ impl Editor {
                 "numbered_list" => {
                     if selected_text.contains('\n') {
                         let mut lines = Vec::new();
-                        for (i, line) in selected_text.lines().enumerate() {
-                            lines.push(format!("{}. {}", i + 1, line));
+                        let mut next_num = 1;
+                        for line in selected_text.lines() {
+                            if line.trim().is_empty() {
+                                lines.push(line.to_string());
+                            } else {
+                                lines.push(format!("{}. {}", next_num, line));
+                                next_num += 1;
+                            }
                         }
                         lines.join("\n")
                     } else {
-                        format!("1. {}", selected_text)
+                        if selected_text.trim().is_empty() {
+                            selected_text
+                        } else {
+                            format!("1. {}", selected_text)
+                        }
                     }
                 }
                 "bulleted_list" => {
                     if selected_text.contains('\n') {
                         let mut lines = Vec::new();
                         for line in selected_text.lines() {
-                            lines.push(format!("- {}", line));
+                            if line.trim().is_empty() {
+                                lines.push(line.to_string());
+                            } else {
+                                lines.push(format!("- {}", line));
+                            }
                         }
                         lines.join("\n")
                     } else {
-                        format!("- {}", selected_text)
+                        if selected_text.trim().is_empty() {
+                            selected_text
+                        } else {
+                            format!("- {}", selected_text)
+                        }
+                    }
+                }
+                "indent" => {
+                    if selected_text.contains('\n') {
+                        let mut lines = Vec::new();
+                        for line in selected_text.lines() {
+                            if line.trim().is_empty() {
+                                lines.push(line.to_string());
+                            } else {
+                                lines.push(format!("> {}", line));
+                            }
+                        }
+                        lines.join("\n")
+                    } else {
+                        if selected_text.trim().is_empty() {
+                            selected_text
+                        } else {
+                            format!("> {}", selected_text)
+                        }
+                    }
+                }
+                "comment" => {
+                    if selected_text.starts_with("<!-- ") && selected_text.ends_with(" -->") {
+                        selected_text[5..selected_text.len() - 4].to_string()
+                    } else if selected_text.starts_with("<!--") && selected_text.ends_with("-->") {
+                        selected_text[4..selected_text.len() - 3].to_string()
+                    } else {
+                        format!("<!-- {} -->", selected_text)
                     }
                 }
                 _ => selected_text,
@@ -172,6 +222,8 @@ impl Editor {
                 "checkbox" => "- [ ] ",
                 "numbered_list" => "1. ",
                 "bulleted_list" => "- ",
+                "indent" => "> ",
+                "comment" => "<!--  -->",
                 _ => "",
             };
             self.buffer.insert(self.cursor.char_idx, placeholder);
@@ -184,6 +236,8 @@ impl Editor {
                 "checkbox" => 6, // "- [ ] " has 6 characters
                 "numbered_list" => 3, // "1. " has 3 characters
                 "bulleted_list" => 2, // "- " has 2 characters
+                "indent" => 2,        // "> " has 2 characters
+                "comment" => 5,       // "<!-- " has 5 characters
                 _ => placeholder.chars().count(),
             };
             self.cursor.char_idx += offset;
@@ -260,5 +314,35 @@ impl Editor {
             self.is_dirty = true;
             self.version += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_selection_comment() {
+        let mut editor = Editor::new();
+        editor.buffer = EditBuffer::from_str("hello world");
+
+        // Test commenting selection
+        editor.selection.anchor = 0;
+        editor.selection.head = 5; // "hello"
+        editor.format_selection("comment");
+        assert_eq!(editor.buffer.to_string(), "<!-- hello --> world");
+
+        // Test uncommenting selection
+        editor.selection.anchor = 0;
+        editor.selection.head = 14; // "<!-- hello -->"
+        editor.format_selection("comment");
+        assert_eq!(editor.buffer.to_string(), "hello world");
+
+        // Test commenting empty selection (inserts placeholder)
+        editor.selection.clear(0);
+        editor.cursor.char_idx = 0;
+        editor.format_selection("comment");
+        assert_eq!(editor.buffer.to_string(), "<!--  -->hello world");
+        assert_eq!(editor.cursor.char_idx, 5); // cursor inside comment
     }
 }

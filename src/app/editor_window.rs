@@ -14,6 +14,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                             &mut state.editor,
                             state.config.font_size,
                             state.config.line_numbers,
+                            state.config.cursor_style,
                         );
                     }
                     ViewMode::Preview => {
@@ -82,6 +83,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                 &mut state.editor,
                                 state.config.font_size,
                                 state.config.line_numbers,
+                                state.config.cursor_style,
                             );
 
                             // Separator / Drag handle
@@ -171,6 +173,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                 &mut state.editor,
                                 state.config.font_size,
                                 state.config.line_numbers,
+                                state.config.cursor_style,
                             );
 
                             // Separator / Drag handle

@@ -158,6 +158,9 @@ impl eframe::App for DoctorMarkdownApp {
                 ShortcutAction::Checkbox => {
                     self.state.editor.format_selection("checkbox");
                 }
+                ShortcutAction::Comment => {
+                    self.state.editor.format_selection("comment");
+                }
                 _ => {}
             }
         }

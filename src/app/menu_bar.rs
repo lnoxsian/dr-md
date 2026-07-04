@@ -202,6 +202,11 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         state.editor.format_selection("link");
                         ui.close_menu();
                     }
+                    if ui.button("Comment (Ctrl+/)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.format_selection("comment");
+                        ui.close_menu();
+                    }
                     ui.separator();
                     // Paragraph Operations
                     if ui.button("Code Block (Ctrl+Shift+C)").clicked() {
@@ -222,6 +227,11 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     if ui.button("Bulleted List (-)").clicked() {
                         state.sync_cursor_from_egui(ctx);
                         state.editor.format_selection("bulleted_list");
+                        ui.close_menu();
+                    }
+                    if ui.button("Blockquote (>)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.format_selection("indent");
                         ui.close_menu();
                     }
                 });
@@ -420,6 +430,26 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         let _ = state.config.save();
                     }
+                    ui.separator();
+                    ui.label("Cursor Style:");
+                    let mut cursor_style = state.config.cursor_style;
+                    ui.horizontal(|ui| {
+                        if ui.selectable_value(&mut cursor_style, crate::config::CursorStyle::IBeam, "I-Beam").changed() {
+                            state.config.cursor_style = cursor_style;
+                            let _ = state.config.save();
+                            crate::config::apply_theme(ui.ctx(), &state.config);
+                        }
+                        if ui.selectable_value(&mut cursor_style, crate::config::CursorStyle::Block, "Block").changed() {
+                            state.config.cursor_style = cursor_style;
+                            let _ = state.config.save();
+                            crate::config::apply_theme(ui.ctx(), &state.config);
+                        }
+                        if ui.selectable_value(&mut cursor_style, crate::config::CursorStyle::Underline, "Underline").changed() {
+                            state.config.cursor_style = cursor_style;
+                            let _ = state.config.save();
+                            crate::config::apply_theme(ui.ctx(), &state.config);
+                        }
+                    });
                 });
             });
         });

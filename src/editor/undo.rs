@@ -177,35 +177,41 @@ pub fn find_char_difference(
     old_str: &str,
     new_str: &str,
 ) -> Option<(EditType, usize, String, String)> {
-    let old_chars: Vec<char> = old_str.chars().collect();
-    let new_chars: Vec<char> = new_str.chars().collect();
-
     let mut prefix_len = 0;
-    while prefix_len < old_chars.len()
-        && prefix_len < new_chars.len()
-        && old_chars[prefix_len] == new_chars[prefix_len]
-    {
-        prefix_len += 1;
+    let mut old_iter = old_str.chars();
+    let mut new_iter = new_str.chars();
+    while let (Some(c1), Some(c2)) = (old_iter.next(), new_iter.next()) {
+        if c1 == c2 {
+            prefix_len += 1;
+        } else {
+            break;
+        }
     }
 
     let mut suffix_len = 0;
-    while suffix_len < (old_chars.len() - prefix_len)
-        && suffix_len < (new_chars.len() - prefix_len)
-        && old_chars[old_chars.len() - 1 - suffix_len]
-            == new_chars[new_chars.len() - 1 - suffix_len]
-    {
-        suffix_len += 1;
+    let mut old_iter_rev = old_str.chars().rev();
+    let mut new_iter_rev = new_str.chars().rev();
+    let max_suffix = old_str.chars().count().saturating_sub(prefix_len)
+        .min(new_str.chars().count().saturating_sub(prefix_len));
+    for _ in 0..max_suffix {
+        match (old_iter_rev.next(), new_iter_rev.next()) {
+            (Some(c1), Some(c2)) if c1 == c2 => suffix_len += 1,
+            _ => break,
+        }
     }
 
-    let deleted_range = prefix_len..(old_chars.len() - suffix_len);
-    let inserted_range = prefix_len..(new_chars.len() - suffix_len);
+    let old_char_count = old_str.chars().count();
+    let new_char_count = new_str.chars().count();
 
-    if deleted_range.is_empty() && inserted_range.is_empty() {
+    let deleted_count = old_char_count - prefix_len - suffix_len;
+    let inserted_count = new_char_count - prefix_len - suffix_len;
+
+    if deleted_count == 0 && inserted_count == 0 {
         return None;
     }
 
-    let deleted: String = old_chars[deleted_range.clone()].iter().collect();
-    let inserted: String = new_chars[inserted_range.clone()].iter().collect();
+    let deleted: String = old_str.chars().skip(prefix_len).take(deleted_count).collect();
+    let inserted: String = new_str.chars().skip(prefix_len).take(inserted_count).collect();
 
     let edit_type = if deleted.is_empty() {
         EditType::Insert
