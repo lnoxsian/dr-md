@@ -78,7 +78,11 @@ impl FileTree {
             self.drag_started_on_item = false;
         }
 
-        if pointer.any_down() && !self.focus_input && self.dragged_items.is_empty() && !self.drag_started_on_item {
+        if pointer.any_down()
+            && !self.focus_input
+            && self.dragged_items.is_empty()
+            && !self.drag_started_on_item
+        {
             if pointer.is_decidedly_dragging() {
                 if let Some(press_origin) = pointer.press_origin() {
                     if ui.clip_rect().contains(press_origin) {
@@ -832,15 +836,18 @@ mod tests {
         let file2 = PathBuf::from("file2.md");
         tree.selected_items.insert(file1.clone());
         tree.selected_items.insert(file2.clone());
-        
+
         // 1. With drag_started_on_item = true, dragging should NOT start marquee select or clear selection
         tree.drag_started_on_item = true;
 
         let ctx = egui::Context::default();
-        
+
         // Frame 1: Press
         let mut raw_input1 = egui::RawInput::default();
-        raw_input1.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
+        raw_input1.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1000.0, 1000.0),
+        ));
         raw_input1.events.push(egui::Event::PointerButton {
             pos: egui::pos2(10.0, 10.0),
             button: egui::PointerButton::Primary,
@@ -851,8 +858,13 @@ mod tests {
 
         // Frame 2: Move and Show
         let mut raw_input2 = egui::RawInput::default();
-        raw_input2.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
-        raw_input2.events.push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0))); // > 3.0 delta
+        raw_input2.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1000.0, 1000.0),
+        ));
+        raw_input2
+            .events
+            .push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0))); // > 3.0 delta
 
         let _ = ctx.run(raw_input2, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -872,13 +884,16 @@ mod tests {
 
         // 2. With drag_started_on_item = false, dragging SHOULD start marquee select and clear selection
         tree.drag_started_on_item = false;
-        
+
         // Reset ctx for a clean test state
         let ctx = egui::Context::default();
-        
+
         // Frame 1: Press
         let mut raw_input1 = egui::RawInput::default();
-        raw_input1.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
+        raw_input1.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1000.0, 1000.0),
+        ));
         raw_input1.events.push(egui::Event::PointerButton {
             pos: egui::pos2(10.0, 10.0),
             button: egui::PointerButton::Primary,
@@ -889,8 +904,13 @@ mod tests {
 
         // Frame 2: Move and Show
         let mut raw_input2 = egui::RawInput::default();
-        raw_input2.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 1000.0)));
-        raw_input2.events.push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0)));
+        raw_input2.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1000.0, 1000.0),
+        ));
+        raw_input2
+            .events
+            .push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0)));
 
         let _ = ctx.run(raw_input2, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -906,4 +926,3 @@ mod tests {
         assert!(tree.selected_items.is_empty());
     }
 }
-

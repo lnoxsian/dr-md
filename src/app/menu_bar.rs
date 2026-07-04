@@ -158,6 +158,59 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         }
                         ui.close_menu();
                     }
+                    ui.separator();
+                    if ui.button("Undo (Ctrl+Z)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.undo();
+                        ui.close_menu();
+                    }
+                    if ui.button("Redo (Ctrl+Shift+Z)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.redo();
+                        ui.close_menu();
+                    }
+                    if ui.button("Select All (Ctrl+A)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                            ctx,
+                            egui::Id::new("editor_text_edit"),
+                        ) {
+                            let len = state.editor.buffer.len_chars();
+                            let anchor = egui::text::CCursor::new(0);
+                            let head = egui::text::CCursor::new(len);
+                            text_state.cursor.set_char_range(Some(
+                                egui::text::CCursorRange::two(anchor, head),
+                            ));
+                            text_state.store(ctx, egui::Id::new("editor_text_edit"));
+                        }
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    if ui.button("Bold (Ctrl+B)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.insert_text("****");
+                        ui.close_menu();
+                    }
+                    if ui.button("Italic (Ctrl+I)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.insert_text("**");
+                        ui.close_menu();
+                    }
+                    if ui.button("Link (Ctrl+K)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.insert_text("[](url)");
+                        ui.close_menu();
+                    }
+                    if ui.button("Code Block (Ctrl+Shift+C)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.insert_text("```\n\n```");
+                        ui.close_menu();
+                    }
+                    if ui.button("Checkbox (Ctrl+L)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.insert_text("- [ ] ");
+                        ui.close_menu();
+                    }
                 });
 
                 ui.menu_button("View", |ui| {

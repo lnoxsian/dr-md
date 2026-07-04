@@ -52,6 +52,7 @@ impl eframe::App for DoctorMarkdownApp {
         }
 
         if let Some(action) = handle_key_events(ctx) {
+            self.state.sync_cursor_from_egui(ctx);
             match action {
                 ShortcutAction::NewNote => {
                     if let Some(ref root) = self.state.vault.root_path {
@@ -107,6 +108,20 @@ impl eframe::App for DoctorMarkdownApp {
                 }
                 ShortcutAction::Redo => {
                     self.state.editor.redo();
+                }
+                ShortcutAction::SelectAll => {
+                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                        ctx,
+                        egui::Id::new("editor_text_edit"),
+                    ) {
+                        let len = self.state.editor.buffer.len_chars();
+                        let anchor = egui::text::CCursor::new(0);
+                        let head = egui::text::CCursor::new(len);
+                        text_state.cursor.set_char_range(Some(
+                            egui::text::CCursorRange::two(anchor, head),
+                        ));
+                        text_state.store(ctx, egui::Id::new("editor_text_edit"));
+                    }
                 }
                 ShortcutAction::ViewEditor => {
                     self.state.view_mode = ViewMode::Editor;

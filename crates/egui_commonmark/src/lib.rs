@@ -696,7 +696,7 @@ impl FencedCodeBlock {
             .map(crate::syntect_color_to_egui)
             .unwrap_or(style.visuals.extreme_bg_color);
 
-        if let Some(color) = curr_theme.settings.selection_foreground {
+        if let Some(color) = curr_theme.settings.selection {
             style.visuals.selection.bg_fill = crate::syntect_color_to_egui(color);
         }
     }

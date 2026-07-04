@@ -19,17 +19,38 @@ impl EditorRenderer {
         }
     }
 
-    pub fn sync_from_editor(&mut self, editor: &Editor) {
+    pub fn sync_from_editor(&mut self, editor: &Editor, ctx: &egui::Context) {
         if editor.version != self.last_version {
             self.content_buffer = editor.buffer.to_string();
             self.last_version = editor.version;
             self.previous_text = self.content_buffer.clone();
             self.previous_cursor = None;
+
+            if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                ctx,
+                egui::Id::new("editor_text_edit"),
+            ) {
+                let anchor = egui::text::CCursor::new(editor.selection.anchor);
+                let head = egui::text::CCursor::new(editor.selection.head);
+                text_state
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::two(anchor, head)));
+                text_state.store(ctx, egui::Id::new("editor_text_edit"));
+            }
         }
     }
 
-    pub fn sync_to_editor(&mut self, editor: &mut Editor) {
-        editor.set_text(&self.content_buffer);
+    pub fn sync_to_editor(&mut self, editor: &mut Editor, ctx: &egui::Context) {
+        if let Some(text_state) =
+            egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit"))
+        {
+            if let Some(range) = text_state.cursor.char_range() {
+                editor.cursor.char_idx = range.primary.index;
+                editor.selection.anchor = range.secondary.index;
+                editor.selection.head = range.primary.index;
+            }
+        }
+        editor.sync_text(&self.content_buffer);
         self.last_version = editor.version;
     }
 
@@ -199,7 +220,9 @@ impl EditorRenderer {
 
                                     // 1. STEP OVER CLOSING BRACKETS
                                     let mut stepped_over = false;
-                                    if !enter_between_pairs && [')', ']', '}', '"', '\'', '`'].contains(&typed_char) {
+                                    if !enter_between_pairs
+                                        && [')', ']', '}', '"', '\'', '`'].contains(&typed_char)
+                                    {
                                         if current_idx < new_chars.len()
                                             && new_chars[current_idx] == typed_char
                                         {
@@ -471,7 +494,7 @@ impl EditorRenderer {
         font_size: f32,
         line_numbers: bool,
     ) {
-        self.sync_from_editor(editor);
+        self.sync_from_editor(editor, ui.ctx());
 
         if line_numbers {
             let mut line_positions = Vec::new();
@@ -574,7 +597,7 @@ impl EditorRenderer {
                 });
 
             if output.inner.0.changed() || output.inner.1 {
-                self.sync_to_editor(editor);
+                self.sync_to_editor(editor, ui.ctx());
             }
         } else {
             let output = egui::ScrollArea::vertical()
@@ -620,7 +643,7 @@ impl EditorRenderer {
                 });
 
             if output.inner.0.changed() || output.inner.1 {
-                self.sync_to_editor(editor);
+                self.sync_to_editor(editor, ui.ctx());
             }
         }
     }
@@ -798,7 +821,7 @@ mod tests {
             // Set up the state before enter: content_buffer has the pair and cursor is between them (index 1)
             renderer.content_buffer = input_pair.to_string();
             renderer.previous_text = input_pair.to_string();
-            
+
             let ccursor = egui::text::CCursor::new(1);
             renderer.previous_cursor = Some(egui::text::CCursorRange::two(ccursor, ccursor));
 
@@ -807,24 +830,40 @@ mod tests {
             let left_char = input_pair.chars().next().unwrap();
             let right_char = input_pair.chars().nth(1).unwrap();
             renderer.content_buffer = format!("{}\n{}", left_char, right_char);
-            
+
             let ctx = egui::Context::default();
             let id = egui::Id::new("test_editor");
             let mut state = egui::widgets::text_edit::TextEditState::default();
             let new_ccursor = egui::text::CCursor::new(2);
-            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(new_ccursor, new_ccursor)));
+            state
+                .cursor
+                .set_char_range(Some(egui::text::CCursorRange::two(
+                    new_ccursor,
+                    new_ccursor,
+                )));
 
             let changed = renderer.process_autoclosing(&ctx, id, state, true);
-            
+
             assert!(changed, "Failed for pair: {}", input_pair);
-            assert_eq!(renderer.content_buffer, expected_output, "Incorrect content buffer for pair: {}", input_pair);
-            
+            assert_eq!(
+                renderer.content_buffer, expected_output,
+                "Incorrect content buffer for pair: {}",
+                input_pair
+            );
+
             // Load stored state from context to verify cursor position
             let updated_state = egui::widgets::text_edit::TextEditState::load(&ctx, id).unwrap();
             let updated_range = updated_state.cursor.char_range().unwrap();
-            assert_eq!(updated_range.primary.index, 2, "Incorrect primary cursor index for pair: {}", input_pair);
-            assert_eq!(updated_range.secondary.index, 2, "Incorrect secondary cursor index for pair: {}", input_pair);
+            assert_eq!(
+                updated_range.primary.index, 2,
+                "Incorrect primary cursor index for pair: {}",
+                input_pair
+            );
+            assert_eq!(
+                updated_range.secondary.index, 2,
+                "Incorrect secondary cursor index for pair: {}",
+                input_pair
+            );
         }
     }
 }
-

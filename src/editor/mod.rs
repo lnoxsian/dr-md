@@ -69,6 +69,18 @@ impl Editor {
         self.version += 1;
     }
 
+    pub fn sync_text(&mut self, new_text: &str) {
+        let old_text = self.buffer.to_string();
+        if old_text == new_text {
+            return;
+        }
+
+        self.undo_stack.push_change(old_text, new_text);
+        self.buffer = EditBuffer::from_str(new_text);
+        self.is_dirty = true;
+        self.version += 1;
+    }
+
     pub fn insert_text(&mut self, text: &str) {
         let current_text = self.buffer.to_string();
         self.undo_stack.push(current_text);

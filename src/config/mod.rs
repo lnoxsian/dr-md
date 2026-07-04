@@ -297,7 +297,7 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
 
     // Apply theme accent color to selection (using a lighter variant in light mode for readability)
     if !style.visuals.dark_mode {
-        style.visuals.selection.bg_fill = lighten_color(accent_color, 0.75);
+        style.visuals.selection.bg_fill = lighten_color(accent_color, 0.55);
         style.visuals.selection.stroke.color = accent_color;
     } else {
         style.visuals.selection.bg_fill = accent_color;
