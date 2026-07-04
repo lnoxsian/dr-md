@@ -186,6 +186,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         ui.close_menu();
                     }
                     ui.separator();
+                    // Single Line/Word Operations
                     if ui.button("Bold (Ctrl+B)").clicked() {
                         state.sync_cursor_from_egui(ctx);
                         state.editor.format_selection("bold");
@@ -201,6 +202,8 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         state.editor.format_selection("link");
                         ui.close_menu();
                     }
+                    ui.separator();
+                    // Paragraph Operations
                     if ui.button("Code Block (Ctrl+Shift+C)").clicked() {
                         state.sync_cursor_from_egui(ctx);
                         state.editor.format_selection("code");
@@ -209,6 +212,16 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     if ui.button("Checkbox (Ctrl+L)").clicked() {
                         state.sync_cursor_from_egui(ctx);
                         state.editor.format_selection("checkbox");
+                        ui.close_menu();
+                    }
+                    if ui.button("Numbered List (1. 2. 3.)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.format_selection("numbered_list");
+                        ui.close_menu();
+                    }
+                    if ui.button("Bulleted List (-)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        state.editor.format_selection("bulleted_list");
                         ui.close_menu();
                     }
                 });

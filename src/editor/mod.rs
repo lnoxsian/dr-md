@@ -134,6 +134,28 @@ impl Editor {
                         }
                     }
                 }
+                "numbered_list" => {
+                    if selected_text.contains('\n') {
+                        let mut lines = Vec::new();
+                        for (i, line) in selected_text.lines().enumerate() {
+                            lines.push(format!("{}. {}", i + 1, line));
+                        }
+                        lines.join("\n")
+                    } else {
+                        format!("1. {}", selected_text)
+                    }
+                }
+                "bulleted_list" => {
+                    if selected_text.contains('\n') {
+                        let mut lines = Vec::new();
+                        for line in selected_text.lines() {
+                            lines.push(format!("- {}", line));
+                        }
+                        lines.join("\n")
+                    } else {
+                        format!("- {}", selected_text)
+                    }
+                }
                 _ => selected_text,
             };
 
@@ -148,6 +170,8 @@ impl Editor {
                 "code" => "```\n\n```",
                 "link" => "[](url)",
                 "checkbox" => "- [ ] ",
+                "numbered_list" => "1. ",
+                "bulleted_list" => "- ",
                 _ => "",
             };
             self.buffer.insert(self.cursor.char_idx, placeholder);
@@ -158,6 +182,8 @@ impl Editor {
                 "code" => 4, // places cursor inside the code block
                 "link" => 1, // inside the bracket
                 "checkbox" => 6, // "- [ ] " has 6 characters
+                "numbered_list" => 3, // "1. " has 3 characters
+                "bulleted_list" => 2, // "- " has 2 characters
                 _ => placeholder.chars().count(),
             };
             self.cursor.char_idx += offset;

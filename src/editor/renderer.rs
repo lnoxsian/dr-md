@@ -516,6 +516,31 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
+                    let is_focused = ui.memory(|mem| mem.has_focus(egui::Id::new("editor_text_edit")));
+                    let pointer = ui.input(|i| i.pointer.clone());
+                    if is_focused && pointer.primary_down() {
+                        if let Some(pos) = pointer.latest_pos() {
+                            let clip_rect = ui.clip_rect();
+                             if pos.y < clip_rect.min.y {
+                                let delta = ((clip_rect.min.y - pos.y) * 0.15).min(10.0);
+                                let target_rect = egui::Rect::from_min_max(
+                                    egui::pos2(clip_rect.min.x, clip_rect.min.y - delta - 2.0),
+                                    egui::pos2(clip_rect.max.x, clip_rect.min.y),
+                                );
+                                ui.scroll_to_rect(target_rect, Some(egui::Align::TOP));
+                                ui.ctx().request_repaint();
+                            } else if pos.y > clip_rect.max.y {
+                                let delta = ((pos.y - clip_rect.max.y) * 0.15).min(10.0);
+                                let target_rect = egui::Rect::from_min_max(
+                                    egui::pos2(clip_rect.min.x, clip_rect.max.y),
+                                    egui::pos2(clip_rect.max.x, clip_rect.max.y + delta + 2.0),
+                                );
+                                ui.scroll_to_rect(target_rect, Some(egui::Align::BOTTOM));
+                                ui.ctx().request_repaint();
+                            }
+                        }
+                    }
+
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 8.0))
                         .show(ui, |ui| {
@@ -636,6 +661,31 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
+                    let is_focused = ui.memory(|mem| mem.has_focus(egui::Id::new("editor_text_edit")));
+                    let pointer = ui.input(|i| i.pointer.clone());
+                    if is_focused && pointer.primary_down() {
+                        if let Some(pos) = pointer.latest_pos() {
+                            let clip_rect = ui.clip_rect();
+                            if pos.y < clip_rect.min.y {
+                                let delta = ((clip_rect.min.y - pos.y) * 0.15).min(10.0);
+                                let target_rect = egui::Rect::from_min_max(
+                                    egui::pos2(clip_rect.min.x, clip_rect.min.y - delta - 2.0),
+                                    egui::pos2(clip_rect.max.x, clip_rect.min.y),
+                                );
+                                ui.scroll_to_rect(target_rect, Some(egui::Align::TOP));
+                                ui.ctx().request_repaint();
+                            } else if pos.y > clip_rect.max.y {
+                                let delta = ((pos.y - clip_rect.max.y) * 0.15).min(10.0);
+                                let target_rect = egui::Rect::from_min_max(
+                                    egui::pos2(clip_rect.min.x, clip_rect.max.y),
+                                    egui::pos2(clip_rect.max.x, clip_rect.max.y + delta + 2.0),
+                                );
+                                ui.scroll_to_rect(target_rect, Some(egui::Align::BOTTOM));
+                                ui.ctx().request_repaint();
+                            }
+                        }
+                    }
+
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 8.0))
                         .show(ui, |ui| {
@@ -809,6 +859,7 @@ impl EditorRenderer {
             ui.close_menu();
         }
         ui.separator();
+        // Single Line/Word Operations
         if ui.button("Bold").clicked() {
             Self::sync_cursor(ui.ctx(), editor);
             editor.format_selection("bold");
@@ -824,6 +875,8 @@ impl EditorRenderer {
             editor.format_selection("link");
             ui.close_menu();
         }
+        ui.separator();
+        // Paragraph Operations
         if ui.button("Code Block").clicked() {
             Self::sync_cursor(ui.ctx(), editor);
             editor.format_selection("code");
@@ -831,7 +884,17 @@ impl EditorRenderer {
         }
         if ui.button("Checkbox").clicked() {
             Self::sync_cursor(ui.ctx(), editor);
-            editor.insert_text("- [ ] ");
+            editor.format_selection("checkbox");
+            ui.close_menu();
+        }
+        if ui.button("Numbered List").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("numbered_list");
+            ui.close_menu();
+        }
+        if ui.button("Bulleted List").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.format_selection("bulleted_list");
             ui.close_menu();
         }
     }
