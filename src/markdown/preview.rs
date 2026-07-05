@@ -6,6 +6,10 @@ pub struct MarkdownPreview {
     pub cached_content: String,
     pub last_version: usize,
     pub last_path: Option<std::path::PathBuf>,
+    pub last_content_height: f32,
+    pub last_viewport_height: f32,
+    pub last_cursor_char_idx: Option<usize>,
+    pub scroll_target_y: Option<f32>,
 }
 
 impl MarkdownPreview {
@@ -15,6 +19,10 @@ impl MarkdownPreview {
             cached_content: String::new(),
             last_version: usize::MAX,
             last_path: None,
+            last_content_height: 0.0,
+            last_viewport_height: 0.0,
+            last_cursor_char_idx: None,
+            scroll_target_y: None,
         }
     }
 
@@ -25,6 +33,7 @@ impl MarkdownPreview {
         tab_path: &std::path::Path,
         font_size: f32,
         theme: &str,
+        mirror_mode: bool,
     ) {
         let path_changed = self.last_path.as_ref().map(|p| p.as_path()) != Some(tab_path);
         if path_changed || editor.version != self.last_version {
@@ -36,48 +45,76 @@ impl MarkdownPreview {
         let mut processed = super::parser::preprocess_wiki_links(&self.cached_content);
         let processed_old = processed.clone();
 
-        egui::ScrollArea::vertical()
+        let cursor_idx = editor.cursor.char_idx;
+        if mirror_mode && self.last_cursor_char_idx != Some(cursor_idx) {
+            self.last_cursor_char_idx = Some(cursor_idx);
+            let line_idx = editor.buffer.rope.char_to_line(cursor_idx);
+            let total_lines = editor.buffer.rope.len_lines();
+            let ratio = if total_lines > 1 {
+                line_idx as f32 / (total_lines - 1) as f32
+            } else {
+                0.0
+            };
+            let max_scroll = (self.last_content_height - self.last_viewport_height).max(0.0);
+            let target_y = ratio * self.last_content_height;
+            // Center the edit line within the preview's viewport height
+            let target_offset = (target_y - self.last_viewport_height / 2.0).clamp(0.0, max_scroll);
+            self.scroll_target_y = Some(target_offset);
+        } else if !mirror_mode {
+            self.last_cursor_char_idx = None;
+            self.scroll_target_y = None;
+        }
+
+        let mut scroll_area = egui::ScrollArea::vertical()
             .id_source("markdown_preview_scroll")
-            .auto_shrink([false; 2])
-            .show(ui, |ui| {
-                egui::Frame::none()
-                    .inner_margin(egui::Margin::symmetric(24.0, 8.0))
-                    .show(ui, |ui| {
-                        let mut style = ui.style().as_ref().clone();
-                        let body_font =
-                            egui::FontId::new(font_size, egui::FontFamily::Proportional);
-                        let heading_font =
-                            egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
-                        let monospace_font =
-                            egui::FontId::new(font_size, egui::FontFamily::Monospace);
+            .auto_shrink([false; 2]);
 
-                        style.text_styles.insert(egui::TextStyle::Body, body_font);
-                        style
-                            .text_styles
-                            .insert(egui::TextStyle::Heading, heading_font);
-                        style
-                            .text_styles
-                            .insert(egui::TextStyle::Monospace, monospace_font);
+        if let Some(target_y) = self.scroll_target_y.take() {
+            scroll_area = scroll_area.vertical_scroll_offset(target_y);
+        }
 
-                        ui.set_style(style);
+        let scroll_output = scroll_area.show(ui, |ui| {
+            egui::Frame::none()
+                .inner_margin(egui::Margin::symmetric(24.0, 8.0))
+                .show(ui, |ui| {
+                    let mut style = ui.style().as_ref().clone();
+                    let body_font =
+                        egui::FontId::new(font_size, egui::FontFamily::Proportional);
+                    let heading_font =
+                        egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
+                    let monospace_font =
+                        egui::FontId::new(font_size, egui::FontFamily::Monospace);
 
-                        let mut viewer = CommonMarkViewer::new("markdown_viewer");
-                        match theme {
-                            "solarized_dark" => {
-                                viewer = viewer.syntax_theme_dark("Solarized (dark)");
-                            }
-                            "solarized_light" => {
-                                viewer = viewer.syntax_theme_light("Solarized (light)");
-                            }
-                            _ => {}
+                    style.text_styles.insert(egui::TextStyle::Body, body_font);
+                    style
+                        .text_styles
+                        .insert(egui::TextStyle::Heading, heading_font);
+                    style
+                        .text_styles
+                        .insert(egui::TextStyle::Monospace, monospace_font);
+
+                    ui.set_style(style);
+
+                    let mut viewer = CommonMarkViewer::new("markdown_viewer");
+                    match theme {
+                        "solarized_dark" => {
+                            viewer = viewer.syntax_theme_dark("Solarized (dark)");
                         }
+                        "solarized_light" => {
+                            viewer = viewer.syntax_theme_light("Solarized (light)");
+                        }
+                        _ => {}
+                    }
 
-                        viewer.show_mut(ui, &mut self.cache, &mut processed);
+                    viewer.show_mut(ui, &mut self.cache, &mut processed);
 
-                        // Add bottom padding inside scroll viewport
-                        ui.add_space(100.0);
-                    });
-            });
+                    // Add bottom padding inside scroll viewport
+                    ui.add_space(100.0);
+                });
+        });
+
+        self.last_content_height = scroll_output.content_size.y;
+        self.last_viewport_height = scroll_output.inner_rect.height();
 
         if processed != processed_old {
             // Apply checkbox changes back to content line by line

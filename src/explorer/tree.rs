@@ -292,9 +292,21 @@ impl FileTree {
             && self.last_hovered_folder.as_ref() == Some(&entry_path);
 
         let folder_label = if is_selected || is_hovered_by_drag {
-            egui::RichText::new(&file_name).underline()
+            let mut job = egui::text::LayoutJob::default();
+            let accent_color = ui.visuals().hyperlink_color;
+            let text_color = ui.visuals().text_color();
+            job.append(
+                &file_name,
+                0.0,
+                egui::TextFormat {
+                    color: text_color,
+                    underline: egui::Stroke::new(1.0, accent_color),
+                    ..Default::default()
+                },
+            );
+            egui::WidgetText::from(job)
         } else {
-            egui::RichText::new(&file_name)
+            egui::WidgetText::from(&file_name)
         };
 
         let collapsing_response = egui::CollapsingHeader::new(folder_label)

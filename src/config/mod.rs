@@ -23,7 +23,7 @@ impl ThemeAccent {
     pub fn color(&self) -> egui::Color32 {
         match self {
             Self::Blue => egui::Color32::from_rgb(29, 78, 216),
-            Self::Purple => egui::Color32::from_rgb(109, 40, 217),
+            Self::Purple => egui::Color32::from_rgb(109, 40, 200),
             Self::Orange => egui::Color32::from_rgb(194, 65, 12),
             Self::Red => egui::Color32::from_rgb(185, 28, 28),
             Self::Green => egui::Color32::from_rgb(21, 128, 61),
@@ -95,6 +95,68 @@ pub struct TabState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FileState {
+    pub last_open_tabs: Vec<TabState>,
+    pub last_active_tab: Option<usize>,
+}
+
+impl Default for FileState {
+    fn default() -> Self {
+        Self {
+            last_open_tabs: Vec::new(),
+            last_active_tab: None,
+        }
+    }
+}
+
+impl FileState {
+    fn get_state_path() -> Option<std::path::PathBuf> {
+        #[cfg(target_os = "windows")]
+        {
+            directories::ProjectDirs::from("com", "drmd", "dr-md")
+                .map(|proj| proj.config_dir().join("state.toml"))
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            directories::BaseDirs::new().map(|base| {
+                base.home_dir()
+                    .join(".config")
+                    .join("dr-md")
+                    .join("state.toml")
+            })
+        }
+    }
+
+    pub fn load() -> Self {
+        if let Some(state_path) = Self::get_state_path() {
+            if state_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(&state_path) {
+                    if let Ok(state) = toml::from_str(&content) {
+                        return state;
+                    }
+                }
+            } else {
+                let default_state = Self::default();
+                let _ = default_state.save();
+                return default_state;
+            }
+        }
+        Self::default()
+    }
+
+    pub fn save(&self) -> Result<(), anyhow::Error> {
+        if let Some(state_path) = Self::get_state_path() {
+            if let Some(parent) = state_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let content = toml::to_string_pretty(self)?;
+            std::fs::write(state_path, content)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct AppConfig {
     pub theme: String,
@@ -106,8 +168,7 @@ pub struct AppConfig {
     pub last_opened_folder: Option<String>,
     pub cursor_style: CursorStyle,
     pub reopen_last_files: bool,
-    pub last_open_tabs: Vec<TabState>,
-    pub last_active_tab: Option<usize>,
+    pub mirror_mode: bool,
 }
 
 impl Default for AppConfig {
@@ -122,8 +183,7 @@ impl Default for AppConfig {
             last_opened_folder: None,
             cursor_style: CursorStyle::default(),
             reopen_last_files: true,
-            last_open_tabs: Vec::new(),
-            last_active_tab: None,
+            mirror_mode: false,
         }
     }
 }
@@ -339,9 +399,14 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
 
     let accent_color = config.theme_accent.color();
 
-    // Apply theme accent color to selection (using a lighter variant in light mode for readability)
+    // Apply theme accent color to selection (using a semi-transparent variant in light mode for readability and contrast)
     if !style.visuals.dark_mode {
-        style.visuals.selection.bg_fill = lighten_color(accent_color, 0.55);
+        style.visuals.selection.bg_fill = egui::Color32::from_rgba_unmultiplied(
+            accent_color.r(),
+            accent_color.g(),
+            accent_color.b(),
+            65,
+        );
         style.visuals.selection.stroke.color = accent_color;
     } else {
         style.visuals.selection.bg_fill = accent_color;
@@ -445,6 +510,19 @@ mod tests {
                 || path
                     .to_string_lossy()
                     .ends_with(".config\\dr-md\\config.toml")
+                || cfg!(target_os = "windows")
+        );
+    }
+
+    #[test]
+    fn test_state_path() {
+        let path = FileState::get_state_path().unwrap();
+        assert!(
+            path.to_string_lossy()
+                .ends_with(".config/dr-md/state.toml")
+                || path
+                    .to_string_lossy()
+                    .ends_with(".config\\dr-md\\state.toml")
                 || cfg!(target_os = "windows")
         );
     }

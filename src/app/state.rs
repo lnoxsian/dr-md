@@ -1,4 +1,4 @@
-use crate::config::AppConfig;
+use crate::config::{AppConfig, FileState};
 pub use crate::config::ViewMode;
 use crate::editor::{Editor, renderer::EditorRenderer};
 use crate::explorer::FileTree;
@@ -15,6 +15,7 @@ pub struct Tab {
 
 pub struct AppState {
     pub config: AppConfig,
+    pub file_state: FileState,
     pub vault: Vault,
     pub explorer: FileTree,
     pub preview: MarkdownPreview,
@@ -34,10 +35,12 @@ pub struct AppState {
 impl AppState {
     pub fn new(root_path: Option<PathBuf>) -> Self {
         let config = AppConfig::load();
+        let file_state = FileState::load();
         let resolved_path =
             root_path.or_else(|| config.last_opened_folder.as_ref().map(PathBuf::from));
         let mut state = Self {
             config,
+            file_state,
             vault: Vault::new(resolved_path),
             explorer: FileTree::new(),
             preview: MarkdownPreview::new(),
@@ -55,8 +58,8 @@ impl AppState {
         };
 
         if state.config.reopen_last_files {
-            let last_tabs = state.config.last_open_tabs.clone();
-            let last_active = state.config.last_active_tab;
+            let last_tabs = state.file_state.last_open_tabs.clone();
+            let last_active = state.file_state.last_active_tab;
             for tab_state in last_tabs {
                 let path = PathBuf::from(tab_state.path);
                 if path.exists() && path.is_file() {
@@ -94,7 +97,7 @@ impl AppState {
 
     pub fn sync_session_state(&mut self) {
         if self.config.reopen_last_files {
-            self.config.last_open_tabs = self
+            self.file_state.last_open_tabs = self
                 .tabs
                 .iter()
                 .map(|tab| crate::config::TabState {
@@ -102,10 +105,10 @@ impl AppState {
                     view_mode: tab.view_mode,
                 })
                 .collect();
-            self.config.last_active_tab = self.active_tab_index;
+            self.file_state.last_active_tab = self.active_tab_index;
         } else {
-            self.config.last_open_tabs.clear();
-            self.config.last_active_tab = None;
+            self.file_state.last_open_tabs.clear();
+            self.file_state.last_active_tab = None;
         }
         self.session_dirty = true;
         self.last_session_change_time = Some(std::time::Instant::now());
@@ -223,6 +226,7 @@ impl AppState {
         if self.session_dirty {
             if let Some(change_time) = self.last_session_change_time {
                 if change_time.elapsed() >= std::time::Duration::from_secs(1) {
+                    let _ = self.file_state.save();
                     let _ = self.config.save();
                     self.session_dirty = false;
                     self.last_session_change_time = None;
@@ -337,8 +341,8 @@ mod tests {
         state.tabs.clear();
         state.active_tab_index = None;
         state.config.reopen_last_files = true;
-        state.config.last_open_tabs.clear();
-        state.config.last_active_tab = None;
+        state.file_state.last_open_tabs.clear();
+        state.file_state.last_active_tab = None;
 
         let path1 = std::env::temp_dir().join("dr_md_test_session_1.md");
         let path2 = std::env::temp_dir().join("dr_md_test_session_2.md");
@@ -349,40 +353,40 @@ mod tests {
         state.open_file_in_tab(path1.clone());
         assert_eq!(state.tabs.len(), 1);
         assert_eq!(state.active_tab_index, Some(0));
-        assert_eq!(state.config.last_open_tabs.len(), 1);
+        assert_eq!(state.file_state.last_open_tabs.len(), 1);
         assert_eq!(
-            state.config.last_open_tabs[0].path,
+            state.file_state.last_open_tabs[0].path,
             path1.to_string_lossy().to_string()
         );
-        assert_eq!(state.config.last_open_tabs[0].view_mode, ViewMode::Split);
-        assert_eq!(state.config.last_active_tab, Some(0));
+        assert_eq!(state.file_state.last_open_tabs[0].view_mode, ViewMode::Split);
+        assert_eq!(state.file_state.last_active_tab, Some(0));
 
         // 2. Open second file
         state.open_file_in_tab(path2.clone());
         assert_eq!(state.tabs.len(), 2);
         assert_eq!(state.active_tab_index, Some(1));
-        assert_eq!(state.config.last_open_tabs.len(), 2);
+        assert_eq!(state.file_state.last_open_tabs.len(), 2);
         assert_eq!(
-            state.config.last_open_tabs[1].path,
+            state.file_state.last_open_tabs[1].path,
             path2.to_string_lossy().to_string()
         );
-        assert_eq!(state.config.last_active_tab, Some(1));
+        assert_eq!(state.file_state.last_active_tab, Some(1));
 
         // 3. Switch tab back
         state.switch_tab(0);
         assert_eq!(state.active_tab_index, Some(0));
-        assert_eq!(state.config.last_active_tab, Some(0));
+        assert_eq!(state.file_state.last_active_tab, Some(0));
 
         // 4. Close tab
         state.close_tab(0);
         assert_eq!(state.tabs.len(), 1);
         assert_eq!(state.active_tab_index, Some(0));
-        assert_eq!(state.config.last_open_tabs.len(), 1);
+        assert_eq!(state.file_state.last_open_tabs.len(), 1);
         assert_eq!(
-            state.config.last_open_tabs[0].path,
+            state.file_state.last_open_tabs[0].path,
             path2.to_string_lossy().to_string()
         );
-        assert_eq!(state.config.last_active_tab, Some(0));
+        assert_eq!(state.file_state.last_active_tab, Some(0));
 
         // Clean up
         let _ = std::fs::remove_file(&path1);

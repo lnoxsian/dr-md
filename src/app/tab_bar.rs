@@ -22,7 +22,7 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                         .unwrap_or_default()
                         .to_string_lossy();
                     let char_count = filename.chars().count();
-                    total_full_width += 48.0 + (char_count as f32) * 7.2;
+                    total_full_width += 32.0 + (char_count as f32) * 7.2;
                 }
 
                 if total_full_width <= available_width {
@@ -31,7 +31,7 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                 } else {
                     // Not enough space: calculate the uniform max tab width that will fit them all
                     let max_tab_width = available_width / (num_tabs as f32);
-                    let computed_len = ((max_tab_width - 48.0) / 7.2) as isize;
+                    let computed_len = ((max_tab_width - 32.0) / 7.2) as isize;
                     computed_len.max(4) as usize
                 }
             } else {
@@ -55,7 +55,6 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                 .unwrap_or_default()
                                 .to_string_lossy()
                                 .to_string();
-                            let display_filename = truncate_filename(&filename, max_char_len);
                             let is_dirty = state.tabs[idx].editor.is_dirty;
 
                             let tab_id = ui.id().with(&tab_path);
@@ -64,6 +63,25 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                 .unwrap_or(egui::Rect::NOTHING);
 
                             let is_tab_hovered = ui.rect_contains_pointer(tab_rect);
+
+                            // Only truncate filenames with more than 2 words (separated by spaces, underscores, or hyphens)
+                            let word_count = {
+                                let base = if let Some(dot_idx) = filename.rfind('.') {
+                                    &filename[..dot_idx]
+                                } else {
+                                    &filename
+                                };
+                                base.split(|c: char| c == ' ' || c == '_' || c == '-')
+                                    .filter(|s| !s.is_empty())
+                                    .count()
+                            };
+
+                            let display_filename = if word_count > 2 {
+                                truncate_filename(&filename, max_char_len)
+                            } else {
+                                filename.clone()
+                            };
+
                             let bg = if is_active {
                                 ui.visuals().panel_fill
                             } else if is_tab_hovered {
@@ -77,14 +95,14 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                             let tab_inner_resp = ui.vertical(|ui| {
                                 let tab_frame = egui::Frame::none()
                                     .fill(bg)
-                                    .inner_margin(egui::Margin::symmetric(12.0, 6.0));
+                                    .inner_margin(egui::Margin::symmetric(6.0, 6.0));
 
                                 tab_frame.show(ui, |ui| {
                                     ui.horizontal(|ui| {
                                         ui.spacing_mut().item_spacing.x = 8.0;
 
                                         let text_color = if is_active {
-                                            ui.visuals().strong_text_color()
+                                            state.config.theme_accent.color()
                                         } else {
                                             ui.visuals().widgets.noninteractive.fg_stroke.color
                                         };
@@ -97,7 +115,7 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
 
                                         ui.add(egui::Label::new(rich_text));
 
-                                        // Close / Dirty dot spacer
+                                        // Close / Dirty dot spacer (always allocated to avoid layout shifts)
                                         let (crect, _) = ui.allocate_exact_size(
                                             egui::vec2(12.0, 12.0),
                                             egui::Sense::click(),
@@ -139,7 +157,7 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                 // Draw accent line at the bottom of the tab to connect it nicely
                                 let accent = state.config.theme_accent.color();
                                 let bottom_line = egui::Rect::from_min_max(
-                                    egui::pos2(new_tab_rect.min.x, new_tab_rect.max.y - 2.0),
+                                    egui::pos2(new_tab_rect.min.x, new_tab_rect.max.y - 1.0),
                                     egui::pos2(new_tab_rect.max.x, new_tab_rect.max.y),
                                 );
                                 ui.painter().rect_filled(bottom_line, 0.0, accent);

@@ -494,6 +494,12 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         state.sync_session_state();
                     }
+                    if ui
+                        .checkbox(&mut state.config.mirror_mode, "Mirror Scroll Mode")
+                        .changed()
+                    {
+                        let _ = state.config.save();
+                    }
                     ui.separator();
                     ui.label("Cursor Style:");
                     let mut cursor_style = state.config.cursor_style;

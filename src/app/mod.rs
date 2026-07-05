@@ -233,6 +233,7 @@ impl eframe::App for DoctorMarkdownApp {
 
     fn save(&mut self, _storage: &mut dyn eframe::Storage) {
         if self.state.session_dirty {
+            let _ = self.state.file_state.save();
             let _ = self.state.config.save();
             self.state.session_dirty = false;
         }

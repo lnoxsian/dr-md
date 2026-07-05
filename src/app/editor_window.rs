@@ -54,6 +54,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                     &tab.path,
                                     font_size,
                                     &theme,
+                                    state.config.mirror_mode,
                                 );
                             }
                             ViewMode::Split => {
@@ -164,6 +165,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                         &tab.path,
                                         font_size,
                                         &theme,
+                                        state.config.mirror_mode,
                                     );
                                 } else {
                                     // Horizontal Split (Side-by-Side)
@@ -265,6 +267,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                         &tab.path,
                                         font_size,
                                         &theme,
+                                        state.config.mirror_mode,
                                     );
                                 }
                             }
