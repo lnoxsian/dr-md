@@ -3,6 +3,7 @@ pub mod editor_window;
 pub mod explorer;
 pub mod menu_bar;
 pub mod state;
+pub mod tab_bar;
 
 use crate::keymap::{ShortcutAction, handle_key_events};
 use state::{AppState, ViewMode};
