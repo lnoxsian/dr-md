@@ -57,58 +57,68 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     }
                     ui.separator();
                     if ui.button("Close Note (Ctrl+W)").clicked() {
-                        state.vault.active_file = None;
-                        state.editor = crate::editor::Editor::new();
+                        if let Some(idx) = state.active_tab_index {
+                            state.close_tab(idx);
+                        }
                         ui.close_menu();
                     }
                 });
 
                 ui.menu_button("Edit", |ui| {
+                    ui.set_enabled(state.active_tab().is_some());
                     if ui.button("Cut (Ctrl+X)").clicked() {
-                        if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                            ctx,
-                            egui::Id::new("editor_text_edit"),
-                        ) {
+                        let id = state.editor_id();
+                        if let Some(mut text_state) =
+                            egui::widgets::text_edit::TextEditState::load(ctx, id)
+                        {
                             if let Some(range) = text_state.cursor.char_range() {
                                 let start = range.primary.index.min(range.secondary.index);
                                 let end = range.primary.index.max(range.secondary.index);
                                 let sorted = start..end;
                                 if !sorted.is_empty() {
-                                    let text_to_copy =
-                                        state.editor.buffer.rope.slice(sorted.clone()).to_string();
-                                    ctx.copy_text(text_to_copy);
+                                    if let Some(tab) = state.active_tab_mut() {
+                                        let text_to_copy = tab
+                                            .editor
+                                            .buffer
+                                            .rope
+                                            .slice(sorted.clone())
+                                            .to_string();
+                                        ctx.copy_text(text_to_copy);
 
-                                    state.editor.buffer.remove(sorted.start, sorted.end);
-                                    state.editor.cursor.char_idx = sorted.start;
-                                    state.editor.selection.clear(sorted.start);
-                                    state.editor.is_dirty = true;
+                                        tab.editor.buffer.remove(sorted.start, sorted.end);
+                                        tab.editor.cursor.char_idx = sorted.start;
+                                        tab.editor.selection.clear(sorted.start);
+                                        tab.editor.is_dirty = true;
 
-                                    state.editor_renderer.content_buffer =
-                                        state.editor.buffer.to_string();
+                                        tab.editor_renderer.content_buffer =
+                                            tab.editor.buffer.to_string();
 
-                                    let cursor = egui::text::CCursor::new(sorted.start);
-                                    text_state.cursor.set_char_range(Some(
-                                        egui::text::CCursorRange::two(cursor, cursor),
-                                    ));
-                                    text_state.store(ctx, egui::Id::new("editor_text_edit"));
+                                        let cursor = egui::text::CCursor::new(sorted.start);
+                                        text_state.cursor.set_char_range(Some(
+                                            egui::text::CCursorRange::two(cursor, cursor),
+                                        ));
+                                        text_state.store(ctx, id);
+                                    }
                                 }
                             }
                         }
                         ui.close_menu();
                     }
                     if ui.button("Copy (Ctrl+C)").clicked() {
-                        if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(
-                            ctx,
-                            egui::Id::new("editor_text_edit"),
-                        ) {
+                        let id = state.editor_id();
+                        if let Some(text_state) =
+                            egui::widgets::text_edit::TextEditState::load(ctx, id)
+                        {
                             if let Some(range) = text_state.cursor.char_range() {
                                 let start = range.primary.index.min(range.secondary.index);
                                 let end = range.primary.index.max(range.secondary.index);
                                 let sorted = start..end;
                                 if !sorted.is_empty() {
-                                    let text_to_copy =
-                                        state.editor.buffer.rope.slice(sorted).to_string();
-                                    ctx.copy_text(text_to_copy);
+                                    if let Some(tab) = state.active_tab() {
+                                        let text_to_copy =
+                                            tab.editor.buffer.rope.slice(sorted).to_string();
+                                        ctx.copy_text(text_to_copy);
+                                    }
                                 }
                             }
                         }
@@ -118,41 +128,41 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         if let Ok(mut clipboard) = arboard::Clipboard::new() {
                             let paste_text = clipboard.get_text().unwrap_or_default();
                             if !paste_text.is_empty() {
+                                let id = state.editor_id();
                                 if let Some(mut text_state) =
-                                    egui::widgets::text_edit::TextEditState::load(
-                                        ctx,
-                                        egui::Id::new("editor_text_edit"),
-                                    )
+                                    egui::widgets::text_edit::TextEditState::load(ctx, id)
                                 {
-                                    let range =
-                                        text_state.cursor.char_range().unwrap_or_else(|| {
-                                            let len = state.editor.buffer.len_chars();
-                                            let cursor = egui::text::CCursor::new(len);
-                                            egui::text::CCursorRange::two(cursor, cursor)
-                                        });
-                                    let start = range.primary.index.min(range.secondary.index);
-                                    let end = range.primary.index.max(range.secondary.index);
-                                    let sorted = start..end;
+                                    if let Some(tab) = state.active_tab_mut() {
+                                        let range =
+                                            text_state.cursor.char_range().unwrap_or_else(|| {
+                                                let len = tab.editor.buffer.len_chars();
+                                                let cursor = egui::text::CCursor::new(len);
+                                                egui::text::CCursorRange::two(cursor, cursor)
+                                            });
+                                        let start = range.primary.index.min(range.secondary.index);
+                                        let end = range.primary.index.max(range.secondary.index);
+                                        let sorted = start..end;
 
-                                    if !sorted.is_empty() {
-                                        state.editor.buffer.remove(sorted.start, sorted.end);
+                                        if !sorted.is_empty() {
+                                            tab.editor.buffer.remove(sorted.start, sorted.end);
+                                        }
+
+                                        tab.editor.buffer.insert(sorted.start, &paste_text);
+                                        tab.editor.cursor.char_idx =
+                                            sorted.start + paste_text.chars().count();
+                                        tab.editor.selection.clear(tab.editor.cursor.char_idx);
+                                        tab.editor.is_dirty = true;
+
+                                        tab.editor_renderer.content_buffer =
+                                            tab.editor.buffer.to_string();
+
+                                        let cursor =
+                                            egui::text::CCursor::new(tab.editor.cursor.char_idx);
+                                        text_state.cursor.set_char_range(Some(
+                                            egui::text::CCursorRange::two(cursor, cursor),
+                                        ));
+                                        text_state.store(ctx, id);
                                     }
-
-                                    state.editor.buffer.insert(sorted.start, &paste_text);
-                                    state.editor.cursor.char_idx =
-                                        sorted.start + paste_text.chars().count();
-                                    state.editor.selection.clear(state.editor.cursor.char_idx);
-                                    state.editor.is_dirty = true;
-
-                                    state.editor_renderer.content_buffer =
-                                        state.editor.buffer.to_string();
-
-                                    let cursor =
-                                        egui::text::CCursor::new(state.editor.cursor.char_idx);
-                                    text_state.cursor.set_char_range(Some(
-                                        egui::text::CCursorRange::two(cursor, cursor),
-                                    ));
-                                    text_state.store(ctx, egui::Id::new("editor_text_edit"));
                                 }
                             }
                         }
@@ -161,27 +171,33 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     ui.separator();
                     if ui.button("Undo (Ctrl+Z)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.undo();
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.undo();
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Redo (Ctrl+Shift+Z)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.redo();
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.redo();
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Select All (Ctrl+A)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                            ctx,
-                            egui::Id::new("editor_text_edit"),
-                        ) {
-                            let len = state.editor.buffer.len_chars();
-                            let anchor = egui::text::CCursor::new(0);
-                            let head = egui::text::CCursor::new(len);
-                            text_state.cursor.set_char_range(Some(
-                                egui::text::CCursorRange::two(anchor, head),
-                            ));
-                            text_state.store(ctx, egui::Id::new("editor_text_edit"));
+                        let id = state.editor_id();
+                        if let Some(mut text_state) =
+                            egui::widgets::text_edit::TextEditState::load(ctx, id)
+                        {
+                            if let Some(tab) = state.active_tab() {
+                                let len = tab.editor.buffer.len_chars();
+                                let anchor = egui::text::CCursor::new(0);
+                                let head = egui::text::CCursor::new(len);
+                                text_state.cursor.set_char_range(Some(
+                                    egui::text::CCursorRange::two(anchor, head),
+                                ));
+                                text_state.store(ctx, id);
+                            }
                         }
                         ui.close_menu();
                     }
@@ -189,79 +205,118 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     // Single Line/Word Operations
                     if ui.button("Bold (Ctrl+B)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("bold");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("bold");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Italic (Ctrl+I)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("italic");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("italic");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Link (Ctrl+K)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("link");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("link");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Comment (Ctrl+/)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("comment");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("comment");
+                        }
                         ui.close_menu();
                     }
                     ui.separator();
                     // Paragraph Operations
                     if ui.button("Code Block (Ctrl+Shift+C)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("code");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("code");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Checkbox (Ctrl+L)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("checkbox");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("checkbox");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Numbered List (1. 2. 3.)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("numbered_list");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("numbered_list");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Bulleted List (-)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("bulleted_list");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("bulleted_list");
+                        }
                         ui.close_menu();
                     }
                     if ui.button("Blockquote (>)").clicked() {
                         state.sync_cursor_from_egui(ctx);
-                        state.editor.format_selection("indent");
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor.format_selection("indent");
+                        }
                         ui.close_menu();
                     }
                 });
 
                 ui.menu_button("View", |ui| {
+                    let has_active_tab = state.active_tab().is_some();
+                    let current_view_mode = state.active_tab().map(|t| t.view_mode);
+
                     if ui
-                        .selectable_label(
-                            state.view_mode == ViewMode::Editor,
-                            "Editor Mode (Ctrl+1)",
+                        .add_enabled(
+                            has_active_tab,
+                            egui::widgets::SelectableLabel::new(
+                                current_view_mode == Some(ViewMode::Editor),
+                                "Editor Mode (Ctrl+1)",
+                            ),
                         )
                         .clicked()
                     {
-                        state.view_mode = ViewMode::Editor;
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.view_mode = ViewMode::Editor;
+                        }
                         ui.close_menu();
                     }
                     if ui
-                        .selectable_label(
-                            state.view_mode == ViewMode::Preview,
-                            "Preview Mode (Ctrl+2)",
+                        .add_enabled(
+                            has_active_tab,
+                            egui::widgets::SelectableLabel::new(
+                                current_view_mode == Some(ViewMode::Preview),
+                                "Preview Mode (Ctrl+2)",
+                            ),
                         )
                         .clicked()
                     {
-                        state.view_mode = ViewMode::Preview;
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.view_mode = ViewMode::Preview;
+                        }
                         ui.close_menu();
                     }
                     if ui
-                        .selectable_label(state.view_mode == ViewMode::Split, "Split Mode (Ctrl+3)")
+                        .add_enabled(
+                            has_active_tab,
+                            egui::widgets::SelectableLabel::new(
+                                current_view_mode == Some(ViewMode::Split),
+                                "Split Mode (Ctrl+3)",
+                            ),
+                        )
                         .clicked()
                     {
-                        state.view_mode = ViewMode::Split;
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.view_mode = ViewMode::Split;
+                        }
                         ui.close_menu();
                     }
                     ui.separator();
@@ -430,21 +485,48 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         let _ = state.config.save();
                     }
+                    if ui
+                        .checkbox(&mut state.config.reopen_last_files, "Reopen Last Files")
+                        .changed()
+                    {
+                        state.sync_session_state();
+                    }
                     ui.separator();
                     ui.label("Cursor Style:");
                     let mut cursor_style = state.config.cursor_style;
                     ui.horizontal(|ui| {
-                        if ui.selectable_value(&mut cursor_style, crate::config::CursorStyle::IBeam, "I-Beam").changed() {
+                        if ui
+                            .selectable_value(
+                                &mut cursor_style,
+                                crate::config::CursorStyle::IBeam,
+                                "Beam",
+                            )
+                            .changed()
+                        {
                             state.config.cursor_style = cursor_style;
                             let _ = state.config.save();
                             crate::config::apply_theme(ui.ctx(), &state.config);
                         }
-                        if ui.selectable_value(&mut cursor_style, crate::config::CursorStyle::Block, "Block").changed() {
+                        if ui
+                            .selectable_value(
+                                &mut cursor_style,
+                                crate::config::CursorStyle::Block,
+                                "Block",
+                            )
+                            .changed()
+                        {
                             state.config.cursor_style = cursor_style;
                             let _ = state.config.save();
                             crate::config::apply_theme(ui.ctx(), &state.config);
                         }
-                        if ui.selectable_value(&mut cursor_style, crate::config::CursorStyle::Underline, "Underline").changed() {
+                        if ui
+                            .selectable_value(
+                                &mut cursor_style,
+                                crate::config::CursorStyle::Underline,
+                                "Underline",
+                            )
+                            .changed()
+                        {
                             state.config.cursor_style = cursor_style;
                             let _ = state.config.save();
                             crate::config::apply_theme(ui.ctx(), &state.config);

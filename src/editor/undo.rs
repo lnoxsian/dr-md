@@ -191,7 +191,10 @@ pub fn find_char_difference(
     let mut suffix_len = 0;
     let mut old_iter_rev = old_str.chars().rev();
     let mut new_iter_rev = new_str.chars().rev();
-    let max_suffix = old_str.chars().count().saturating_sub(prefix_len)
+    let max_suffix = old_str
+        .chars()
+        .count()
+        .saturating_sub(prefix_len)
         .min(new_str.chars().count().saturating_sub(prefix_len));
     for _ in 0..max_suffix {
         match (old_iter_rev.next(), new_iter_rev.next()) {
@@ -210,8 +213,16 @@ pub fn find_char_difference(
         return None;
     }
 
-    let deleted: String = old_str.chars().skip(prefix_len).take(deleted_count).collect();
-    let inserted: String = new_str.chars().skip(prefix_len).take(inserted_count).collect();
+    let deleted: String = old_str
+        .chars()
+        .skip(prefix_len)
+        .take(deleted_count)
+        .collect();
+    let inserted: String = new_str
+        .chars()
+        .skip(prefix_len)
+        .take(inserted_count)
+        .collect();
 
     let edit_type = if deleted.is_empty() {
         EditType::Insert

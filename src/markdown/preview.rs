@@ -5,6 +5,7 @@ pub struct MarkdownPreview {
     pub cache: CommonMarkCache,
     pub cached_content: String,
     pub last_version: usize,
+    pub last_path: Option<std::path::PathBuf>,
 }
 
 impl MarkdownPreview {
@@ -13,13 +14,23 @@ impl MarkdownPreview {
             cache: CommonMarkCache::default(),
             cached_content: String::new(),
             last_version: usize::MAX,
+            last_path: None,
         }
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, editor: &mut Editor, font_size: f32, theme: &str) {
-        if editor.version != self.last_version {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        editor: &mut Editor,
+        tab_path: &std::path::Path,
+        font_size: f32,
+        theme: &str,
+    ) {
+        let path_changed = self.last_path.as_ref().map(|p| p.as_path()) != Some(tab_path);
+        if path_changed || editor.version != self.last_version {
             self.cached_content = editor.buffer.to_string();
             self.last_version = editor.version;
+            self.last_path = Some(tab_path.to_path_buf());
         }
 
         let mut processed = super::parser::preprocess_wiki_links(&self.cached_content);

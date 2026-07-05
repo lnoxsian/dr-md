@@ -2,6 +2,14 @@ use super::Editor;
 use egui::text::LayoutJob;
 use egui::{Color32, FontId, TextFormat};
 
+fn get_editor_id(editor: &Editor) -> egui::Id {
+    if let Some(ref path) = editor.active_path {
+        egui::Id::new(("editor_text_edit", path))
+    } else {
+        egui::Id::new("editor_text_edit")
+    }
+}
+
 pub struct EditorRenderer {
     pub content_buffer: String,
     pub last_version: usize,
@@ -26,23 +34,22 @@ impl EditorRenderer {
             self.previous_text = self.content_buffer.clone();
             self.previous_cursor = None;
 
-            if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                ctx,
-                egui::Id::new("editor_text_edit"),
-            ) {
+            if let Some(mut text_state) =
+                egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
+            {
                 let anchor = egui::text::CCursor::new(editor.selection.anchor);
                 let head = egui::text::CCursor::new(editor.selection.head);
                 text_state
                     .cursor
                     .set_char_range(Some(egui::text::CCursorRange::two(anchor, head)));
-                text_state.store(ctx, egui::Id::new("editor_text_edit"));
+                text_state.store(ctx, get_editor_id(editor));
             }
         }
     }
 
     pub fn sync_to_editor(&mut self, editor: &mut Editor, ctx: &egui::Context) {
         if let Some(text_state) =
-            egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit"))
+            egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
         {
             if let Some(range) = text_state.cursor.char_range() {
                 editor.cursor.char_idx = range.primary.index;
@@ -496,10 +503,9 @@ impl EditorRenderer {
         cursor_style: crate::config::CursorStyle,
     ) {
         let mut previous_selection = None;
-        if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(
-            ui.ctx(),
-            egui::Id::new("editor_text_edit"),
-        ) {
+        if let Some(text_state) =
+            egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
+        {
             if let Some(range) = text_state.cursor.char_range() {
                 if range.primary.index != range.secondary.index {
                     previous_selection = Some(range);
@@ -517,7 +523,7 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    self.handle_drag_autoscroll(ui);
+                    self.handle_drag_autoscroll(ui, editor);
 
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 8.0))
@@ -565,7 +571,7 @@ impl EditorRenderer {
 
                                     let text_edit =
                                         egui::TextEdit::multiline(&mut self.content_buffer)
-                                            .id(egui::Id::new("editor_text_edit"))
+                                            .id(get_editor_id(editor))
                                             .font(FontId::monospace(font_size))
                                             .frame(false)
                                             .layouter(&mut layouter)
@@ -577,18 +583,27 @@ impl EditorRenderer {
                                         Self::render_context_menu(ui, editor, content_buf);
                                     });
 
-                                    self.draw_custom_cursor(ui, editor, &edit_output, cursor_style, font_size);
+                                    self.draw_custom_cursor(
+                                        ui,
+                                        editor,
+                                        &edit_output,
+                                        cursor_style,
+                                        font_size,
+                                    );
 
                                     if is_right_click_pressed && edit_res.contains_pointer() {
                                         if let Some(prev_range) = previous_selection {
-                                            if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                                                ui.ctx(),
-                                                egui::Id::new("editor_text_edit"),
-                                            ) {
+                                            if let Some(mut text_state) =
+                                                egui::widgets::text_edit::TextEditState::load(
+                                                    ui.ctx(),
+                                                    get_editor_id(editor),
+                                                )
+                                            {
                                                 text_state.cursor.set_char_range(Some(prev_range));
-                                                text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                                                text_state.store(ui.ctx(), get_editor_id(editor));
                                                 editor.cursor.char_idx = prev_range.primary.index;
-                                                editor.selection.anchor = prev_range.secondary.index;
+                                                editor.selection.anchor =
+                                                    prev_range.secondary.index;
                                                 editor.selection.head = prev_range.primary.index;
                                             }
                                         }
@@ -641,7 +656,7 @@ impl EditorRenderer {
                 .id_source("editor_scroll")
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
-                    self.handle_drag_autoscroll(ui);
+                    self.handle_drag_autoscroll(ui, editor);
 
                     egui::Frame::none()
                         .inner_margin(egui::Margin::symmetric(24.0, 8.0))
@@ -658,7 +673,7 @@ impl EditorRenderer {
                             };
 
                             let text_edit = egui::TextEdit::multiline(&mut self.content_buffer)
-                                .id(egui::Id::new("editor_text_edit"))
+                                .id(get_editor_id(editor))
                                 .font(FontId::monospace(font_size))
                                 .frame(false)
                                 .layouter(&mut layouter)
@@ -670,16 +685,24 @@ impl EditorRenderer {
                                 Self::render_context_menu(ui, editor, content_buf);
                             });
 
-                            self.draw_custom_cursor(ui, editor, &edit_output, cursor_style, font_size);
+                            self.draw_custom_cursor(
+                                ui,
+                                editor,
+                                &edit_output,
+                                cursor_style,
+                                font_size,
+                            );
 
                             if is_right_click_pressed && edit_res.contains_pointer() {
                                 if let Some(prev_range) = previous_selection {
-                                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                                        ui.ctx(),
-                                        egui::Id::new("editor_text_edit"),
-                                    ) {
+                                    if let Some(mut text_state) =
+                                        egui::widgets::text_edit::TextEditState::load(
+                                            ui.ctx(),
+                                            get_editor_id(editor),
+                                        )
+                                    {
                                         text_state.cursor.set_char_range(Some(prev_range));
-                                        text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                                        text_state.store(ui.ctx(), get_editor_id(editor));
                                         editor.cursor.char_idx = prev_range.primary.index;
                                         editor.selection.anchor = prev_range.secondary.index;
                                         editor.selection.head = prev_range.primary.index;
@@ -710,7 +733,7 @@ impl EditorRenderer {
 
     fn sync_cursor(ctx: &egui::Context, editor: &mut Editor) {
         if let Some(text_state) =
-            egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit"))
+            egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
         {
             if let Some(range) = text_state.cursor.char_range() {
                 editor.cursor.char_idx = range.primary.index;
@@ -720,23 +743,17 @@ impl EditorRenderer {
         }
     }
 
-    fn render_context_menu(
-        ui: &mut egui::Ui,
-        editor: &mut Editor,
-        content_buffer: &mut String,
-    ) {
+    fn render_context_menu(ui: &mut egui::Ui, editor: &mut Editor, content_buffer: &mut String) {
         if ui.button("Cut").clicked() {
-            if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                ui.ctx(),
-                egui::Id::new("editor_text_edit"),
-            ) {
+            if let Some(mut text_state) =
+                egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
+            {
                 if let Some(range) = text_state.cursor.char_range() {
                     let start = range.primary.index.min(range.secondary.index);
                     let end = range.primary.index.max(range.secondary.index);
                     let sorted = start..end;
                     if !sorted.is_empty() {
-                        let text_to_copy =
-                            editor.buffer.rope.slice(sorted.clone()).to_string();
+                        let text_to_copy = editor.buffer.rope.slice(sorted.clone()).to_string();
                         ui.ctx().copy_text(text_to_copy);
 
                         editor.buffer.remove(sorted.start, sorted.end);
@@ -747,27 +764,25 @@ impl EditorRenderer {
                         *content_buffer = editor.buffer.to_string();
 
                         let cursor = egui::text::CCursor::new(sorted.start);
-                        text_state.cursor.set_char_range(Some(
-                            egui::text::CCursorRange::two(cursor, cursor),
-                        ));
-                        text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                        text_state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                        text_state.store(ui.ctx(), get_editor_id(editor));
                     }
                 }
             }
             ui.close_menu();
         }
         if ui.button("Copy").clicked() {
-            if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(
-                ui.ctx(),
-                egui::Id::new("editor_text_edit"),
-            ) {
+            if let Some(text_state) =
+                egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
+            {
                 if let Some(range) = text_state.cursor.char_range() {
                     let start = range.primary.index.min(range.secondary.index);
                     let end = range.primary.index.max(range.secondary.index);
                     let sorted = start..end;
                     if !sorted.is_empty() {
-                        let text_to_copy =
-                            editor.buffer.rope.slice(sorted).to_string();
+                        let text_to_copy = editor.buffer.rope.slice(sorted).to_string();
                         ui.ctx().copy_text(text_to_copy);
                     }
                 }
@@ -778,18 +793,15 @@ impl EditorRenderer {
             if let Ok(mut clipboard) = arboard::Clipboard::new() {
                 let paste_text = clipboard.get_text().unwrap_or_default();
                 if !paste_text.is_empty() {
-                    if let Some(mut text_state) =
-                        egui::widgets::text_edit::TextEditState::load(
-                            ui.ctx(),
-                            egui::Id::new("editor_text_edit"),
-                        )
-                    {
-                        let range =
-                            text_state.cursor.char_range().unwrap_or_else(|| {
-                                let len = editor.buffer.len_chars();
-                                let cursor = egui::text::CCursor::new(len);
-                                egui::text::CCursorRange::two(cursor, cursor)
-                            });
+                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                        ui.ctx(),
+                        get_editor_id(editor),
+                    ) {
+                        let range = text_state.cursor.char_range().unwrap_or_else(|| {
+                            let len = editor.buffer.len_chars();
+                            let cursor = egui::text::CCursor::new(len);
+                            egui::text::CCursorRange::two(cursor, cursor)
+                        });
                         let start = range.primary.index.min(range.secondary.index);
                         let end = range.primary.index.max(range.secondary.index);
                         let sorted = start..end;
@@ -799,19 +811,17 @@ impl EditorRenderer {
                         }
 
                         editor.buffer.insert(sorted.start, &paste_text);
-                        editor.cursor.char_idx =
-                            sorted.start + paste_text.chars().count();
+                        editor.cursor.char_idx = sorted.start + paste_text.chars().count();
                         editor.selection.clear(editor.cursor.char_idx);
                         editor.is_dirty = true;
 
                         *content_buffer = editor.buffer.to_string();
 
-                        let cursor =
-                            egui::text::CCursor::new(editor.cursor.char_idx);
-                        text_state.cursor.set_char_range(Some(
-                            egui::text::CCursorRange::two(cursor, cursor),
-                        ));
-                        text_state.store(ui.ctx(), egui::Id::new("editor_text_edit"));
+                        let cursor = egui::text::CCursor::new(editor.cursor.char_idx);
+                        text_state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                        text_state.store(ui.ctx(), get_editor_id(editor));
                     }
                 }
             }
@@ -868,8 +878,8 @@ impl EditorRenderer {
         }
     }
 
-    fn handle_drag_autoscroll(&self, ui: &mut egui::Ui) {
-        let is_focused = ui.memory(|mem| mem.has_focus(egui::Id::new("editor_text_edit")));
+    fn handle_drag_autoscroll(&self, ui: &mut egui::Ui, editor: &Editor) {
+        let is_focused = ui.memory(|mem| mem.has_focus(get_editor_id(editor)));
         let pointer = ui.input(|i| i.pointer.clone());
         if is_focused && pointer.primary_down() {
             if let Some(pos) = pointer.latest_pos() {
@@ -909,26 +919,24 @@ impl EditorRenderer {
                 if range.primary.index == range.secondary.index {
                     let ccursor = range.primary;
                     let pos_start = edit_output.galley.pos_from_ccursor(ccursor);
-                    let pos_end = edit_output.galley.pos_from_ccursor(egui::text::CCursor::new(ccursor.index + 1));
+                    let pos_end = edit_output
+                        .galley
+                        .pos_from_ccursor(egui::text::CCursor::new(ccursor.index + 1));
                     let char_width = if pos_end.min.y == pos_start.min.y {
                         (pos_end.min.x - pos_start.min.x).max(6.0)
                     } else {
                         font_size * 0.6
                     };
-                    let accent_color = ui.visuals().selection.stroke.color;
+                    let accent_color = ui.visuals().hyperlink_color;
                     let rect = match cursor_style {
-                        crate::config::CursorStyle::Block => {
-                            egui::Rect::from_min_max(
-                                pos_start.min,
-                                egui::pos2(pos_start.min.x + char_width, pos_start.max.y),
-                            )
-                        }
-                        crate::config::CursorStyle::Underline => {
-                            egui::Rect::from_min_max(
-                                egui::pos2(pos_start.min.x, pos_start.max.y - 2.0),
-                                egui::pos2(pos_start.min.x + char_width, pos_start.max.y),
-                            )
-                        }
+                        crate::config::CursorStyle::Block => egui::Rect::from_min_max(
+                            pos_start.min,
+                            egui::pos2(pos_start.min.x + char_width, pos_start.max.y),
+                        ),
+                        crate::config::CursorStyle::Underline => egui::Rect::from_min_max(
+                            egui::pos2(pos_start.min.x, pos_start.max.y - 2.0),
+                            egui::pos2(pos_start.min.x + char_width, pos_start.max.y),
+                        ),
                         _ => pos_start,
                     };
                     let color = match cursor_style {

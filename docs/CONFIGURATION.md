@@ -23,6 +23,7 @@ The current configuration schema includes:
 - `autosave` - autosave toggle.
 - `tab_width` - tab width setting.
 - `last_opened_folder` - last vault path opened by the user.
+- `cursor_style` - editor caret style (`ibeam`, `block`, or `underline`).
 
 ## Example
 
@@ -34,14 +35,18 @@ line_numbers = true
 autosave = true
 tab_width = 4
 last_opened_folder = "/home/user/notes"
+cursor_style = "ibeam"
 ```
 
 ## Theme Notes
 
 The app supports dark, light, Solarized dark, Solarized light, Gruvbox dark, and Gruvbox light themes. The accent color affects selection, hyperlinks, and the text cursor.
 
+Available accent colors are blue, purple, orange, red, green, pink, teal, and yellow.
+
 ## Persistence Rules
 
 - Opening a folder updates `last_opened_folder` and saves config immediately.
 - Changing theme settings saves config immediately.
 - If the config file is unreadable, the app falls back to defaults.
+- If the config file is missing, the app creates a default config on first launch.

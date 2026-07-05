@@ -100,37 +100,50 @@ impl eframe::App for DoctorMarkdownApp {
                     }
                 }
                 ShortcutAction::CloseNote => {
-                    self.state.vault.active_file = None;
-                    self.state.editor = crate::editor::Editor::new();
+                    if let Some(idx) = self.state.active_tab_index {
+                        self.state.close_tab(idx);
+                    }
                 }
                 ShortcutAction::Undo => {
-                    self.state.editor.undo();
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.undo();
+                    }
                 }
                 ShortcutAction::Redo => {
-                    self.state.editor.redo();
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.redo();
+                    }
                 }
                 ShortcutAction::SelectAll => {
-                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
-                        ctx,
-                        egui::Id::new("editor_text_edit"),
-                    ) {
-                        let len = self.state.editor.buffer.len_chars();
-                        let anchor = egui::text::CCursor::new(0);
-                        let head = egui::text::CCursor::new(len);
-                        text_state.cursor.set_char_range(Some(
-                            egui::text::CCursorRange::two(anchor, head),
-                        ));
-                        text_state.store(ctx, egui::Id::new("editor_text_edit"));
+                    let editor_id = self.state.editor_id();
+                    if let Some(tab) = self.state.active_tab() {
+                        if let Some(mut text_state) =
+                            egui::widgets::text_edit::TextEditState::load(ctx, editor_id)
+                        {
+                            let len = tab.editor.buffer.len_chars();
+                            let anchor = egui::text::CCursor::new(0);
+                            let head = egui::text::CCursor::new(len);
+                            text_state
+                                .cursor
+                                .set_char_range(Some(egui::text::CCursorRange::two(anchor, head)));
+                            text_state.store(ctx, editor_id);
+                        }
                     }
                 }
                 ShortcutAction::ViewEditor => {
-                    self.state.view_mode = ViewMode::Editor;
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.view_mode = ViewMode::Editor;
+                    }
                 }
                 ShortcutAction::ViewPreview => {
-                    self.state.view_mode = ViewMode::Preview;
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.view_mode = ViewMode::Preview;
+                    }
                 }
                 ShortcutAction::ViewSplit => {
-                    self.state.view_mode = ViewMode::Split;
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.view_mode = ViewMode::Split;
+                    }
                 }
                 ShortcutAction::ToggleExplorer => {
                     self.state.explorer_visible = !self.state.explorer_visible;
@@ -144,22 +157,64 @@ impl eframe::App for DoctorMarkdownApp {
                     }
                 }
                 ShortcutAction::Bold => {
-                    self.state.editor.format_selection("bold");
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.format_selection("bold");
+                    }
                 }
                 ShortcutAction::Italic => {
-                    self.state.editor.format_selection("italic");
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.format_selection("italic");
+                    }
                 }
                 ShortcutAction::Link => {
-                    self.state.editor.format_selection("link");
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.format_selection("link");
+                    }
                 }
                 ShortcutAction::CodeBlock => {
-                    self.state.editor.format_selection("code");
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.format_selection("code");
+                    }
                 }
                 ShortcutAction::Checkbox => {
-                    self.state.editor.format_selection("checkbox");
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.format_selection("checkbox");
+                    }
                 }
                 ShortcutAction::Comment => {
-                    self.state.editor.format_selection("comment");
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor.format_selection("comment");
+                    }
+                }
+                ShortcutAction::NextTab => {
+                    if !self.state.tabs.is_empty() {
+                        if let Some(idx) = self.state.active_tab_index {
+                            let next_idx = (idx + 1) % self.state.tabs.len();
+                            self.state.switch_tab(next_idx);
+                            ctx.memory_mut(|mem| {
+                                if let Some(id) = mem.focused() {
+                                    mem.surrender_focus(id);
+                                }
+                            });
+                        }
+                    }
+                }
+                ShortcutAction::PrevTab => {
+                    if !self.state.tabs.is_empty() {
+                        if let Some(idx) = self.state.active_tab_index {
+                            let prev_idx = if idx == 0 {
+                                self.state.tabs.len() - 1
+                            } else {
+                                idx - 1
+                            };
+                            self.state.switch_tab(prev_idx);
+                            ctx.memory_mut(|mem| {
+                                if let Some(id) = mem.focused() {
+                                    mem.surrender_focus(id);
+                                }
+                            });
+                        }
+                    }
                 }
                 _ => {}
             }

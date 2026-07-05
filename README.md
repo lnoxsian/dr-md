@@ -15,11 +15,12 @@ dr.md is a native Linux Markdown editor and previewer built with Rust, `egui`, a
 ## What It Does
 
 - Opens a folder as a vault and browses it in a file explorer sidebar.
-- Edits Markdown with a rope-based text buffer and undo/redo support.
+- Edits Markdown with a rope-based text buffer, undo/redo support, and autosave.
+- Keeps multiple files open in tabs, with editor, preview, and split views per tab.
 - Renders live preview with `egui_commonmark`.
-- Supports editor, preview, and split views.
-- Persists theme and workspace preferences in a local config file.
-- Uses native file dialogs, file watching, and standard keyboard shortcuts.
+- Supports explorer actions such as create, rename, cut, copy, paste, delete, and drag and drop.
+- Persists theme, accent, cursor, and workspace preferences in a local config file.
+- Uses native file dialogs and standard keyboard shortcuts.
 
 ## Quick Start
 
@@ -56,6 +57,7 @@ If you prefer task wrappers, the repository also includes `make` and `just` targ
 ```text
 src/            Application code
 crates/         Local patched dependencies
+crates/egui_commonmark/  Vendored Markdown preview crate used by dr.md
 assets/         App artwork and generated icons
 assets/logo/    App logos and in-app branding
 assets/icons/   Window icons and app icon sizes

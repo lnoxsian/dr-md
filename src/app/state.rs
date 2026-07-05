@@ -12,14 +12,18 @@ pub enum ViewMode {
     Split,
 }
 
+pub struct Tab {
+    pub path: PathBuf,
+    pub editor: Editor,
+    pub editor_renderer: EditorRenderer,
+    pub view_mode: ViewMode,
+}
+
 pub struct AppState {
     pub config: AppConfig,
     pub vault: Vault,
     pub explorer: FileTree,
-    pub editor: Editor,
-    pub editor_renderer: EditorRenderer,
     pub preview: MarkdownPreview,
-    pub view_mode: ViewMode,
     pub explorer_visible: bool,
     pub focus_mode: bool,
     pub split_ratio: f32,
@@ -27,6 +31,8 @@ pub struct AppState {
     pub logo_dark_mode: Option<egui::TextureHandle>,
     pub last_edit_time: Option<std::time::Instant>,
     pub last_editor_version: usize,
+    pub tabs: Vec<Tab>,
+    pub active_tab_index: Option<usize>,
 }
 
 impl AppState {
@@ -34,14 +40,11 @@ impl AppState {
         let config = AppConfig::load();
         let resolved_path =
             root_path.or_else(|| config.last_opened_folder.as_ref().map(PathBuf::from));
-        Self {
+        let mut state = Self {
             config,
             vault: Vault::new(resolved_path),
             explorer: FileTree::new(),
-            editor: Editor::new(),
-            editor_renderer: EditorRenderer::new(),
             preview: MarkdownPreview::new(),
-            view_mode: ViewMode::Split,
             explorer_visible: true,
             focus_mode: false,
             split_ratio: 0.5,
@@ -49,43 +52,206 @@ impl AppState {
             logo_dark_mode: None,
             last_edit_time: None,
             last_editor_version: 0,
+            tabs: Vec::new(),
+            active_tab_index: None,
+        };
+
+        if state.config.reopen_last_files {
+            let last_files = state.config.last_open_files.clone();
+            let last_active = state.config.last_active_tab;
+            for file_path_str in last_files {
+                let path = PathBuf::from(file_path_str);
+                if path.exists() && path.is_file() {
+                    state.open_file_in_tab_inner(path);
+                }
+            }
+            if let Some(active_idx) = last_active {
+                if active_idx < state.tabs.len() {
+                    state.switch_tab_inner(active_idx);
+                }
+            }
+        }
+
+        state
+    }
+
+    pub fn active_tab(&self) -> Option<&Tab> {
+        self.active_tab_index.and_then(|idx| self.tabs.get(idx))
+    }
+
+    pub fn active_tab_mut(&mut self) -> Option<&mut Tab> {
+        self.active_tab_index.and_then(|idx| self.tabs.get_mut(idx))
+    }
+
+    pub fn editor_id(&self) -> egui::Id {
+        if let Some(ref path) = self.vault.active_file {
+            egui::Id::new(("editor_text_edit", path))
+        } else {
+            egui::Id::new("editor_text_edit")
         }
     }
 
+    pub fn sync_session_state(&mut self) {
+        if self.config.reopen_last_files {
+            self.config.last_open_files = self
+                .tabs
+                .iter()
+                .map(|tab| tab.path.to_string_lossy().to_string())
+                .collect();
+            self.config.last_active_tab = self.active_tab_index;
+        } else {
+            self.config.last_open_files.clear();
+            self.config.last_active_tab = None;
+        }
+        let _ = self.config.save();
+    }
+
+    pub fn open_file_in_tab(&mut self, path: PathBuf) {
+        self.open_file_in_tab_inner(path);
+        self.sync_session_state();
+    }
+
+    fn open_file_in_tab_inner(&mut self, path: PathBuf) {
+        if let Some(idx) = self.tabs.iter().position(|t| t.path == path) {
+            self.switch_tab_inner(idx);
+            return;
+        }
+
+        let mut new_editor = Editor::new();
+        if let Err(e) = new_editor.load_file(path.clone()) {
+            tracing::error!("Failed to load file: {:?}", e);
+            return;
+        }
+
+        self.vault.active_file = Some(path.clone());
+
+        let tab = Tab {
+            path,
+            editor: new_editor,
+            editor_renderer: EditorRenderer::new(),
+            view_mode: ViewMode::Split,
+        };
+        self.tabs.push(tab);
+        let new_idx = self.tabs.len() - 1;
+        self.active_tab_index = Some(new_idx);
+
+        if let Some(active_tab) = self.active_tab() {
+            self.last_editor_version = active_tab.editor.version;
+        } else {
+            self.last_editor_version = 0;
+        }
+        self.last_edit_time = None;
+    }
+
+    pub fn switch_tab(&mut self, new_idx: usize) {
+        self.switch_tab_inner(new_idx);
+        self.sync_session_state();
+    }
+
+    fn switch_tab_inner(&mut self, new_idx: usize) {
+        if new_idx >= self.tabs.len() {
+            return;
+        }
+
+        self.active_tab_index = Some(new_idx);
+        let tab_path = self.tabs[new_idx].path.clone();
+        self.vault.active_file = Some(tab_path);
+
+        if let Some(active_tab) = self.active_tab() {
+            self.last_editor_version = active_tab.editor.version;
+        } else {
+            self.last_editor_version = 0;
+        }
+        self.last_edit_time = None;
+    }
+
+    pub fn close_tab(&mut self, idx: usize) {
+        if idx >= self.tabs.len() {
+            return;
+        }
+
+        let tab = &mut self.tabs[idx];
+        if tab.editor.is_dirty && tab.editor.active_path.is_some() {
+            let _ = tab.editor.save_file();
+        }
+
+        self.tabs.remove(idx);
+
+        let old_active_idx = self.active_tab_index;
+        if self.tabs.is_empty() {
+            self.active_tab_index = None;
+            self.vault.active_file = None;
+            self.last_editor_version = 0;
+            self.last_edit_time = None;
+        } else {
+            if let Some(active_idx) = old_active_idx {
+                if active_idx == idx {
+                    let new_idx = if idx >= self.tabs.len() {
+                        self.tabs.len() - 1
+                    } else {
+                        idx
+                    };
+                    self.active_tab_index = None;
+                    self.switch_tab_inner(new_idx);
+                } else if active_idx > idx {
+                    self.active_tab_index = Some(active_idx - 1);
+                }
+            }
+        }
+        self.sync_session_state();
+    }
+
     pub fn sync_cursor_from_egui(&mut self, ctx: &egui::Context) {
-        if let Some(text_state) =
-            egui::widgets::text_edit::TextEditState::load(ctx, egui::Id::new("editor_text_edit"))
-        {
-            if let Some(range) = text_state.cursor.char_range() {
-                self.editor.cursor.char_idx = range.primary.index;
-                self.editor.selection.anchor = range.secondary.index;
-                self.editor.selection.head = range.primary.index;
+        let id = self.editor_id();
+        if let Some(tab) = self.active_tab_mut() {
+            if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(ctx, id) {
+                if let Some(range) = text_state.cursor.char_range() {
+                    tab.editor.cursor.char_idx = range.primary.index;
+                    tab.editor.selection.anchor = range.secondary.index;
+                    tab.editor.selection.head = range.primary.index;
+                }
             }
         }
     }
 
     pub fn check_autosave(&mut self, ctx: &egui::Context) {
-        if self.config.autosave && self.editor.is_dirty && self.editor.active_path.is_some() {
-            let current_version = self.editor.version;
-            if self.last_editor_version != current_version {
-                self.last_editor_version = current_version;
-                self.last_edit_time = Some(std::time::Instant::now());
-            }
+        if self.config.autosave {
+            if let Some(idx) = self.active_tab_index {
+                let is_dirty_and_has_path = self
+                    .tabs
+                    .get(idx)
+                    .map(|tab| tab.editor.is_dirty && tab.editor.active_path.is_some())
+                    .unwrap_or(false);
 
-            let last_edit = self
-                .last_edit_time
-                .get_or_insert_with(std::time::Instant::now);
-            if last_edit.elapsed() >= std::time::Duration::from_secs(1) {
-                if let Err(e) = self.editor.save_file() {
-                    tracing::error!("Failed to save file: {:?}", e);
+                if is_dirty_and_has_path {
+                    let current_version = self.tabs[idx].editor.version;
+                    if self.last_editor_version != current_version {
+                        self.last_editor_version = current_version;
+                        self.last_edit_time = Some(std::time::Instant::now());
+                    }
+
+                    let elapsed = self
+                        .last_edit_time
+                        .get_or_insert_with(std::time::Instant::now)
+                        .elapsed();
+
+                    if elapsed >= std::time::Duration::from_secs(1) {
+                        if let Err(e) = self.tabs[idx].editor.save_file() {
+                            tracing::error!("Failed to save file: {:?}", e);
+                        }
+                        self.last_edit_time = None;
+                    } else {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(500));
+                    }
+                    return;
                 }
-                self.last_edit_time = None;
-            } else {
-                ctx.request_repaint_after(std::time::Duration::from_millis(500));
             }
+        }
+        self.last_edit_time = None;
+        if let Some(tab) = self.active_tab() {
+            self.last_editor_version = tab.editor.version;
         } else {
-            self.last_edit_time = None;
-            self.last_editor_version = self.editor.version;
+            self.last_editor_version = 0;
         }
     }
 }
@@ -105,13 +271,23 @@ mod tests {
         let mut state = AppState::new(None);
         state.config.autosave = true;
 
-        // Setup editor with an active path
-        state.editor.active_path = Some(file_path.clone());
-        state.editor.set_text("Initial text");
+        // Setup active tab with an active path
+        state.tabs.push(Tab {
+            path: file_path.clone(),
+            editor: {
+                let mut editor = Editor::new();
+                editor.active_path = Some(file_path.clone());
+                editor.set_text("Initial text");
+                editor
+            },
+            editor_renderer: EditorRenderer::new(),
+            view_mode: ViewMode::Split,
+        });
+        state.active_tab_index = Some(0);
 
         // Verify set_text makes it dirty and updates version
-        assert!(state.editor.is_dirty);
-        let version1 = state.editor.version;
+        assert!(state.tabs[0].editor.is_dirty);
+        let version1 = state.tabs[0].editor.version;
         state.last_editor_version = version1;
 
         // Mock egui context
@@ -120,19 +296,74 @@ mod tests {
         // 1. If edit is recent (less than 1s ago), check_autosave should request repaint and NOT save
         state.last_edit_time = Some(std::time::Instant::now());
         state.check_autosave(&ctx);
-        assert!(state.editor.is_dirty); // Still dirty
+        assert!(state.tabs[0].editor.is_dirty); // Still dirty
         assert!(!file_path.exists()); // File not written yet
 
         // 2. If last edit time was more than 1s ago, check_autosave should save the file and clear is_dirty
         state.last_edit_time = Some(std::time::Instant::now() - std::time::Duration::from_secs(2));
         state.check_autosave(&ctx);
 
-        assert!(!state.editor.is_dirty); // No longer dirty
+        assert!(!state.tabs[0].editor.is_dirty); // No longer dirty
         assert!(file_path.exists()); // File written!
         let content = std::fs::read_to_string(&file_path).unwrap();
         assert_eq!(content, "Initial text");
 
         // Clean up
         let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[test]
+    fn test_tab_session_state() {
+        let mut state = AppState::new(None);
+        state.config.reopen_last_files = true;
+        state.config.last_open_files.clear();
+        state.config.last_active_tab = None;
+
+        let path1 = std::env::temp_dir().join("dr_md_test_session_1.md");
+        let path2 = std::env::temp_dir().join("dr_md_test_session_2.md");
+        std::fs::write(&path1, "content1").unwrap();
+        std::fs::write(&path2, "content2").unwrap();
+
+        // 1. Open first file
+        state.open_file_in_tab(path1.clone());
+        assert_eq!(state.tabs.len(), 1);
+        assert_eq!(state.active_tab_index, Some(0));
+        assert_eq!(state.config.last_open_files.len(), 1);
+        assert_eq!(
+            state.config.last_open_files[0],
+            path1.to_string_lossy().to_string()
+        );
+        assert_eq!(state.config.last_active_tab, Some(0));
+
+        // 2. Open second file
+        state.open_file_in_tab(path2.clone());
+        assert_eq!(state.tabs.len(), 2);
+        assert_eq!(state.active_tab_index, Some(1));
+        assert_eq!(state.config.last_open_files.len(), 2);
+        assert_eq!(
+            state.config.last_open_files[1],
+            path2.to_string_lossy().to_string()
+        );
+        assert_eq!(state.config.last_active_tab, Some(1));
+
+        // 3. Switch tab back
+        state.switch_tab(0);
+        assert_eq!(state.active_tab_index, Some(0));
+        assert_eq!(state.config.last_active_tab, Some(0));
+
+        // 4. Close tab
+        state.close_tab(0);
+        assert_eq!(state.tabs.len(), 1);
+        assert_eq!(state.active_tab_index, Some(0));
+        assert_eq!(state.config.last_open_files.len(), 1);
+        assert_eq!(
+            state.config.last_open_files[0],
+            path2.to_string_lossy().to_string()
+        );
+        assert_eq!(state.config.last_active_tab, Some(0));
+
+        // Clean up
+        let _ = std::fs::remove_file(&path1);
+        let _ = std::fs::remove_file(&path2);
     }
 }

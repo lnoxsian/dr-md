@@ -2,23 +2,31 @@ use crate::app::state::AppState;
 use std::path::PathBuf;
 
 pub fn execute_open_file(state: &mut AppState, path: PathBuf) {
-    state.vault.active_file = Some(path.clone());
-    if let Err(e) = state.editor.load_file(path) {
-        tracing::error!("Failed to load file: {:?}", e);
-    }
+    state.open_file_in_tab(path);
 }
 
 pub fn execute_save(state: &mut AppState) {
-    if state.editor.active_path.is_some() {
-        if let Err(e) = state.editor.save_file() {
-            tracing::error!("Failed to save file: {:?}", e);
+    if let Some(tab) = state.active_tab_mut() {
+        if tab.editor.active_path.is_some() {
+            if let Err(e) = tab.editor.save_file() {
+                tracing::error!("Failed to save file: {:?}", e);
+            }
         }
     }
 }
 
 pub fn execute_save_as(state: &mut AppState, path: PathBuf) {
-    if let Err(e) = state.editor.save_as(path) {
-        tracing::error!("Failed to save file as: {:?}", e);
+    let mut success = false;
+    if let Some(tab) = state.active_tab_mut() {
+        if let Err(e) = tab.editor.save_as(path.clone()) {
+            tracing::error!("Failed to save file as: {:?}", e);
+        } else {
+            tab.path = path.clone();
+            success = true;
+        }
+    }
+    if success {
+        state.vault.active_file = Some(path);
     }
 }
 

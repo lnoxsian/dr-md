@@ -231,9 +231,9 @@ impl Editor {
             let offset = match format_type {
                 "bold" => 2,
                 "italic" => 1,
-                "code" => 4, // places cursor inside the code block
-                "link" => 1, // inside the bracket
-                "checkbox" => 6, // "- [ ] " has 6 characters
+                "code" => 4,          // places cursor inside the code block
+                "link" => 1,          // inside the bracket
+                "checkbox" => 6,      // "- [ ] " has 6 characters
                 "numbered_list" => 3, // "1. " has 3 characters
                 "bulleted_list" => 2, // "- " has 2 characters
                 "indent" => 2,        // "> " has 2 characters

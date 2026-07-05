@@ -5,12 +5,15 @@
 Start the app and choose a folder. That folder becomes the current vault. The explorer shows the folder tree and the editor opens Markdown files from that tree.
 
 When you open a different folder, dr.md stores it as the last opened vault so the next launch can restore the same workspace.
+Each file opens in its own tab, and reopening an already-open file switches to that tab instead of loading a duplicate editor.
 
 ## Editing Notes
 
 The editor is backed by a rope buffer, not a plain text box, so it is intended to handle larger notes without falling over. The app tracks dirty state and undo history internally.
 
 Common editor actions are available from the keyboard, the menu bar, and the explorer context menus. The active note is saved through the same backing file path used when it was opened.
+
+Autosave is enabled by default and writes changes after the editor has been idle for about one second.
 
 ## Views
 
@@ -20,6 +23,8 @@ Common editor actions are available from the keyboard, the menu bar, and the exp
 
 Switch views from the View menu or with the keyboard shortcuts in [docs/SHORTCUTS.md](SHORTCUTS.md).
 
+Each tab keeps its own view mode, so one note can stay in split view while another remains editor-only or preview-only.
+
 ## File Explorer
 
 The explorer lets you:
@@ -28,6 +33,7 @@ The explorer lets you:
 - rename items,
 - move items by drag and drop,
 - multi-select items with command-click behavior,
+- drag-select ranges of items,
 - open files by clicking them.
 
 The tree hides dotfiles by default.
@@ -41,6 +47,12 @@ The preview is rendered through `egui_commonmark`. Task list items are interacti
 The app also preprocesses wiki-style links before rendering preview output.
 
 The preview cache updates only when the editor version changes, which keeps live rendering responsive while you type.
+
+Formatting helpers in the Edit menu and shortcuts cover bold, italic, links, code blocks, checkboxes, comments, numbered lists, bulleted lists, and blockquotes.
+
+## Shortcuts
+
+The app currently exposes the file, editing, formatting, and view shortcuts listed in [docs/SHORTCUTS.md](SHORTCUTS.md).
 
 ## Links And File Creation
 

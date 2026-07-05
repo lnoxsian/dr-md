@@ -35,6 +35,8 @@ pub enum ShortcutAction {
     ViewSplit,
     ToggleExplorer,
     ToggleFocusMode,
+    NextTab,
+    PrevTab,
 }
 
 pub fn handle_key_events(ctx: &egui::Context) -> Option<ShortcutAction> {
@@ -42,6 +44,17 @@ pub fn handle_key_events(ctx: &egui::Context) -> Option<ShortcutAction> {
         let ctrl = i.modifiers.command; // handles Ctrl on Linux/Windows and Cmd on macOS
         let shift = i.modifiers.shift;
         let alt = i.modifiers.alt;
+
+        if ctrl && i.key_pressed(egui::Key::Tab) {
+            i.consume_key(egui::Modifiers::NONE, egui::Key::Tab);
+            i.consume_key(egui::Modifiers::SHIFT, egui::Key::Tab);
+            i.consume_key(i.modifiers, egui::Key::Tab);
+            if shift {
+                return Some(ShortcutAction::PrevTab);
+            } else {
+                return Some(ShortcutAction::NextTab);
+            }
+        }
 
         let mut check_and_consume =
             |key: egui::Key, req_ctrl: bool, req_shift: bool, req_alt: bool| -> bool {

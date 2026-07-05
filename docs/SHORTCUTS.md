@@ -14,7 +14,8 @@ The app uses the platform command modifier, so `Ctrl` on Linux and Windows maps 
 ## Editing
 
 - `Ctrl+Z` - Undo
-- `Ctrl+Shift+Z` - Redo
+- `Ctrl+Shift+Z` or `Ctrl+R` - Redo
+- `Ctrl+A` - Select all
 
 ## Markdown
 
@@ -23,6 +24,7 @@ The app uses the platform command modifier, so `Ctrl` on Linux and Windows maps 
 - `Ctrl+K` - Insert link markers
 - `Ctrl+Shift+C` - Insert code block markers
 - `Ctrl+L` - Insert checkbox markers
+- `Ctrl+/` - Toggle comment markers
 
 ## Views And Layout
 
@@ -34,5 +36,4 @@ The app uses the platform command modifier, so `Ctrl` on Linux and Windows maps 
 
 ## Navigation
 
-- `Alt+Left` - Back
-- `Alt+Right` - Forward
+The keymap currently reserves entries for additional navigation features, but they are not wired into the app loop yet.

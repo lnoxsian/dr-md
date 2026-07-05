@@ -85,6 +85,9 @@ pub struct AppConfig {
     pub tab_width: usize,
     pub last_opened_folder: Option<String>,
     pub cursor_style: CursorStyle,
+    pub reopen_last_files: bool,
+    pub last_open_files: Vec<String>,
+    pub last_active_tab: Option<usize>,
 }
 
 impl Default for AppConfig {
@@ -98,6 +101,9 @@ impl Default for AppConfig {
             tab_width: 4,
             last_opened_folder: None,
             cursor_style: CursorStyle::default(),
+            reopen_last_files: true,
+            last_open_files: Vec::new(),
+            last_active_tab: None,
         }
     }
 }
@@ -308,6 +314,8 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     style.visuals.widgets.open.rounding = egui::Rounding::ZERO;
     style.visuals.window_rounding = egui::Rounding::ZERO;
     style.visuals.menu_rounding = egui::Rounding::ZERO;
+    style.visuals.window_shadow = egui::epaint::Shadow::NONE;
+    style.visuals.popup_shadow = egui::epaint::Shadow::NONE;
 
     let accent_color = config.theme_accent.color();
 
