@@ -133,16 +133,19 @@ impl eframe::App for DoctorMarkdownApp {
                 ShortcutAction::ViewEditor => {
                     if let Some(tab) = self.state.active_tab_mut() {
                         tab.view_mode = ViewMode::Editor;
+                        self.state.sync_session_state();
                     }
                 }
                 ShortcutAction::ViewPreview => {
                     if let Some(tab) = self.state.active_tab_mut() {
                         tab.view_mode = ViewMode::Preview;
+                        self.state.sync_session_state();
                     }
                 }
                 ShortcutAction::ViewSplit => {
                     if let Some(tab) = self.state.active_tab_mut() {
                         tab.view_mode = ViewMode::Split;
+                        self.state.sync_session_state();
                     }
                 }
                 ShortcutAction::ToggleExplorer => {
@@ -225,5 +228,12 @@ impl eframe::App for DoctorMarkdownApp {
         editor_window::render_editor_window(ctx, &mut self.state);
 
         self.state.check_autosave(ctx);
+    }
+
+    fn save(&mut self, _storage: &mut dyn eframe::Storage) {
+        if self.state.session_dirty {
+            let _ = self.state.config.save();
+            self.state.session_dirty = false;
+        }
     }
 }

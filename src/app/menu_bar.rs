@@ -286,6 +286,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         if let Some(tab) = state.active_tab_mut() {
                             tab.view_mode = ViewMode::Editor;
+                            state.sync_session_state();
                         }
                         ui.close_menu();
                     }
@@ -301,6 +302,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         if let Some(tab) = state.active_tab_mut() {
                             tab.view_mode = ViewMode::Preview;
+                            state.sync_session_state();
                         }
                         ui.close_menu();
                     }
@@ -316,6 +318,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         if let Some(tab) = state.active_tab_mut() {
                             tab.view_mode = ViewMode::Split;
+                            state.sync_session_state();
                         }
                         ui.close_menu();
                     }

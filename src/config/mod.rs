@@ -74,6 +74,26 @@ impl Default for CursorStyle {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ViewMode {
+    Editor,
+    Preview,
+    Split,
+}
+
+impl Default for ViewMode {
+    fn default() -> Self {
+        Self::Split
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TabState {
+    pub path: String,
+    pub view_mode: ViewMode,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct AppConfig {
@@ -86,7 +106,7 @@ pub struct AppConfig {
     pub last_opened_folder: Option<String>,
     pub cursor_style: CursorStyle,
     pub reopen_last_files: bool,
-    pub last_open_files: Vec<String>,
+    pub last_open_tabs: Vec<TabState>,
     pub last_active_tab: Option<usize>,
 }
 
@@ -102,7 +122,7 @@ impl Default for AppConfig {
             last_opened_folder: None,
             cursor_style: CursorStyle::default(),
             reopen_last_files: true,
-            last_open_files: Vec::new(),
+            last_open_tabs: Vec::new(),
             last_active_tab: None,
         }
     }
