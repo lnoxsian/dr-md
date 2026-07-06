@@ -190,6 +190,11 @@ impl eframe::App for DoctorMarkdownApp {
                         tab.editor.format_selection("comment");
                     }
                 }
+                ShortcutAction::Table => {
+                    let pos = self.state.active_tab().and_then(|t| t.editor.cursor_screen_pos);
+                    self.state.insert_table_dialog_open = true;
+                    self.state.insert_table_dialog_pos = pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
+                }
                 ShortcutAction::NextTab => {
                     if !self.state.tabs.is_empty() {
                         if let Some(idx) = self.state.active_tab_index {
@@ -224,9 +229,99 @@ impl eframe::App for DoctorMarkdownApp {
             }
         }
 
+        let mut request_dialog = false;
+        let mut cursor_pos = None;
+        if let Some(tab) = self.state.active_tab_mut() {
+            if tab.editor.request_table_dialog {
+                tab.editor.request_table_dialog = false;
+                request_dialog = true;
+                cursor_pos = tab.editor.cursor_screen_pos;
+            }
+        }
+        if request_dialog {
+            self.state.insert_table_dialog_open = true;
+            self.state.insert_table_dialog_pos = cursor_pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
+        }
+
         menu_bar::render_menu_bar(ctx, &mut self.state);
         explorer::render_explorer(ctx, &mut self.state);
         editor_window::render_editor_window(ctx, &mut self.state);
+
+        if self.state.insert_table_dialog_open {
+            let mut close_dialog = false;
+            let mut insert = false;
+
+            let mut window = egui::Window::new("Insert Table")
+                .title_bar(false)
+                .collapsible(false)
+                .resizable(false);
+
+            if let Some(pos) = self.state.insert_table_dialog_pos {
+                window = window.current_pos(pos + egui::vec2(10.0, 10.0));
+            } else {
+                window = window.anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0));
+            }
+
+            let window_response = window.show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Table");
+                    ui.add(egui::DragValue::new(&mut self.state.insert_table_rows).clamp_range(1..=100));
+                    ui.label("x");
+                    ui.add(egui::DragValue::new(&mut self.state.insert_table_cols).clamp_range(1..=20));
+                });
+            });
+
+            if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                insert = true;
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                close_dialog = true;
+            }
+
+            if let Some(response) = window_response {
+                let rect = response.response.rect;
+                if ctx.input(|i| i.pointer.button_clicked(egui::PointerButton::Primary)) {
+                    if let Some(click_pos) = ctx.input(|i| i.pointer.interact_pos()) {
+                        if !rect.contains(click_pos) {
+                            close_dialog = true;
+                        }
+                    }
+                }
+            }
+
+            if close_dialog {
+                self.state.insert_table_dialog_open = false;
+            }
+
+            if insert {
+                self.state.insert_table_dialog_open = false;
+                self.state.sync_cursor_from_egui(ctx);
+
+                let cols = self.state.insert_table_cols;
+                let rows = self.state.insert_table_rows;
+                let editor_id = self.state.editor_id();
+
+                if let Some(tab) = self.state.active_tab_mut() {
+                    let selected_text = if let Some(range) = tab.editor.selection.range() {
+                        tab.editor.buffer.rope.slice(range).to_string()
+                    } else {
+                        String::new()
+                    };
+                    tab.editor.format_table(
+                        cols,
+                        rows,
+                        &selected_text,
+                    );
+                    tab.editor_renderer.content_buffer = tab.editor.buffer.to_string();
+
+                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(ctx, editor_id) {
+                        let cursor = egui::text::CCursor::new(tab.editor.cursor.char_idx);
+                        text_state.cursor.set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                        text_state.store(ctx, editor_id);
+                    }
+                }
+            }
+        }
 
         self.state.check_autosave(ctx);
     }

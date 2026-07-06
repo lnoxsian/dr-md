@@ -578,6 +578,9 @@ impl EditorRenderer {
                                             .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
                                     let edit_res = edit_output.response.clone();
+
+                                    self.update_cursor_screen_pos(editor, &edit_output);
+
                                     let content_buf = &mut self.content_buffer;
                                     edit_res.clone().context_menu(|ui| {
                                         Self::render_context_menu(ui, editor, content_buf);
@@ -680,6 +683,9 @@ impl EditorRenderer {
                                 .desired_width(f32::INFINITY);
                             let edit_output = text_edit.show(ui);
                             let edit_res = edit_output.response.clone();
+
+                            self.update_cursor_screen_pos(editor, &edit_output);
+
                             let content_buf = &mut self.content_buffer;
                             edit_res.clone().context_menu(|ui| {
                                 Self::render_context_menu(ui, editor, content_buf);
@@ -861,6 +867,11 @@ impl EditorRenderer {
             editor.format_selection("checkbox");
             ui.close_menu();
         }
+        if ui.button("Table").clicked() {
+            Self::sync_cursor(ui.ctx(), editor);
+            editor.request_table_dialog = true;
+            ui.close_menu();
+        }
         if ui.button("Numbered List").clicked() {
             Self::sync_cursor(ui.ctx(), editor);
             editor.format_selection("numbered_list");
@@ -903,6 +914,25 @@ impl EditorRenderer {
                 }
             }
         }
+    }
+
+    fn update_cursor_screen_pos(
+        &self,
+        editor: &mut Editor,
+        edit_output: &egui::text_edit::TextEditOutput,
+    ) {
+        let mut cursor_screen_pos = None;
+        if let Some(range) = edit_output.state.cursor.char_range() {
+            let ccursor = range.primary;
+            let local_rect = edit_output.galley.pos_from_ccursor(ccursor);
+            let line_height = local_rect.height();
+            cursor_screen_pos = Some(
+                edit_output.response.rect.min
+                    + local_rect.min.to_vec2()
+                    + egui::vec2(0.0, line_height),
+            );
+        }
+        editor.cursor_screen_pos = cursor_screen_pos;
     }
 
     fn draw_custom_cursor(

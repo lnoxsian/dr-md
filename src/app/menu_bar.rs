@@ -247,6 +247,13 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         }
                         ui.close_menu();
                     }
+                    if ui.button("Table (Ctrl+Shift+T)").clicked() {
+                        state.insert_table_dialog_open = true;
+                        state.insert_table_dialog_pos = state.active_tab()
+                            .and_then(|t| t.editor.cursor_screen_pos)
+                            .or_else(|| ctx.input(|i| i.pointer.latest_pos()));
+                        ui.close_menu();
+                    }
                     if ui.button("Numbered List (1. 2. 3.)").clicked() {
                         state.sync_cursor_from_egui(ctx);
                         if let Some(tab) = state.active_tab_mut() {

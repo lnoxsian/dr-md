@@ -28,6 +28,7 @@ pub enum ShortcutAction {
     CodeBlock,
     Checkbox,
     Comment,
+    Table,
 
     // Views
     ViewEditor,
@@ -135,6 +136,9 @@ pub fn handle_key_events(ctx: &egui::Context) -> Option<ShortcutAction> {
         }
         if check_and_consume(egui::Key::Slash, true, false, false) {
             return Some(ShortcutAction::Comment);
+        }
+        if check_and_consume(egui::Key::T, true, true, false) {
+            return Some(ShortcutAction::Table);
         }
 
         // Views

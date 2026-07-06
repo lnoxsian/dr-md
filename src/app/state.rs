@@ -30,6 +30,10 @@ pub struct AppState {
     pub active_tab_index: Option<usize>,
     pub session_dirty: bool,
     pub last_session_change_time: Option<std::time::Instant>,
+    pub insert_table_dialog_open: bool,
+    pub insert_table_cols: usize,
+    pub insert_table_rows: usize,
+    pub insert_table_dialog_pos: Option<egui::Pos2>,
 }
 
 impl AppState {
@@ -55,6 +59,10 @@ impl AppState {
             active_tab_index: None,
             session_dirty: false,
             last_session_change_time: None,
+            insert_table_dialog_open: false,
+            insert_table_cols: 3,
+            insert_table_rows: 3,
+            insert_table_dialog_pos: None,
         };
 
         if state.config.reopen_last_files {
