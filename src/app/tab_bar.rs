@@ -115,34 +115,36 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
 
                                         ui.add(egui::Label::new(rich_text));
 
-                                        // Close / Dirty dot spacer (always allocated to avoid layout shifts)
-                                        let (crect, _) = ui.allocate_exact_size(
-                                            egui::vec2(12.0, 12.0),
-                                            egui::Sense::click(),
-                                        );
-                                        close_rect = crect;
+                                        // Close / Dirty dot spacer (only allocated when hovered or dirty)
+                                        if is_tab_hovered || is_dirty {
+                                            let (crect, _) = ui.allocate_exact_size(
+                                                egui::vec2(12.0, 12.0),
+                                                egui::Sense::click(),
+                                            );
+                                            close_rect = crect;
 
-                                        let painter = ui.painter();
-                                        let is_close_hovered = ui.rect_contains_pointer(close_rect);
-                                        let accent = state.config.theme_accent.color();
-                                        if is_close_hovered {
-                                            painter.text(
-                                                close_rect.center(),
-                                                egui::Align2::CENTER_CENTER,
-                                                "×",
-                                                egui::FontId::monospace(14.0),
-                                                accent,
-                                            );
-                                        } else if is_tab_hovered {
-                                            painter.text(
-                                                close_rect.center(),
-                                                egui::Align2::CENTER_CENTER,
-                                                "×",
-                                                egui::FontId::monospace(14.0),
-                                                accent.linear_multiply(0.6),
-                                            );
-                                        } else if is_dirty {
-                                            painter.circle_filled(close_rect.center(), 4.0, accent);
+                                            let painter = ui.painter();
+                                            let is_close_hovered = ui.rect_contains_pointer(close_rect);
+                                            let accent = state.config.theme_accent.color();
+                                            if is_close_hovered {
+                                                painter.text(
+                                                    close_rect.center(),
+                                                    egui::Align2::CENTER_CENTER,
+                                                    "×",
+                                                    egui::FontId::monospace(14.0),
+                                                    accent,
+                                                );
+                                            } else if is_tab_hovered {
+                                                painter.text(
+                                                    close_rect.center(),
+                                                    egui::Align2::CENTER_CENTER,
+                                                    "×",
+                                                    egui::FontId::monospace(14.0),
+                                                    accent.linear_multiply(0.6),
+                                                );
+                                            } else if is_dirty {
+                                                painter.circle_filled(close_rect.center(), 4.0, accent);
+                                            }
                                         }
                                     });
                                 });

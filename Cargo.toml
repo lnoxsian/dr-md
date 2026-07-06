@@ -26,6 +26,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 rfd = "0.14"
 arboard = "3.6.1"
+url = "2.5"
 
 [patch.crates-io]
 egui_commonmark = { path = "crates/egui_commonmark" }

@@ -23,35 +23,6 @@ impl DoctorMarkdownApp {
 }
 impl eframe::App for DoctorMarkdownApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Some(open_url) = ctx.output_mut(|o| o.open_url.take()) {
-            let url_str = open_url.url.as_str();
-            if !url_str.starts_with("http://")
-                && !url_str.starts_with("https://")
-                && !url_str.starts_with("mailto:")
-            {
-                let decoded_path =
-                    urlencoding::decode(url_str).unwrap_or(std::borrow::Cow::Borrowed(url_str));
-                if let Some(ref root) = self.state.vault.root_path {
-                    let mut target_path = root.join(decoded_path.as_ref());
-                    if !target_path.is_dir() && !target_path.to_string_lossy().ends_with(".md") {
-                        target_path = root.join(format!("{}.md", decoded_path));
-                    }
-
-                    if target_path.exists() && target_path.is_file() {
-                        commands::execute_open_file(&mut self.state, target_path);
-                    } else {
-                        if let Some(parent) = target_path.parent() {
-                            std::fs::create_dir_all(parent).ok();
-                        }
-                        std::fs::write(&target_path, "").ok();
-                        commands::execute_open_file(&mut self.state, target_path);
-                    }
-                }
-            } else {
-                ctx.output_mut(|o| o.open_url = Some(open_url));
-            }
-        }
-
         if let Some(action) = handle_key_events(ctx) {
             self.state.sync_cursor_from_egui(ctx);
             match action {
@@ -323,6 +294,46 @@ impl eframe::App for DoctorMarkdownApp {
             }
         }
 
+        if let Some(open_url) = ctx.output_mut(|o| o.open_url.take()) {
+            let url_str = open_url.url.as_str();
+            if !url_str.starts_with("http://")
+                && !url_str.starts_with("https://")
+                && !url_str.starts_with("mailto:")
+            {
+                let mut target_path = resolve_link_path(
+                    url_str,
+                    self.state.vault.active_file.as_deref(),
+                    self.state.vault.root_path.as_deref(),
+                );
+
+                // If the path doesn't end with .md and doesn't exist, we append the .md extension.
+                let target_path_str = target_path.to_string_lossy();
+                if !target_path.is_dir()
+                    && !target_path_str.ends_with(".md")
+                    && !target_path.exists()
+                {
+                    target_path = target_path.with_extension("md");
+                }
+
+                if target_path.is_dir() {
+                    commands::execute_open_folder(&mut self.state, target_path);
+                } else if target_path.exists() && target_path.is_file() {
+                    commands::execute_open_file(&mut self.state, target_path);
+                } else {
+                    if let Some(parent) = target_path.parent() {
+                        std::fs::create_dir_all(parent).ok();
+                    }
+                    if std::fs::write(&target_path, "").is_ok() {
+                        commands::execute_open_file(&mut self.state, target_path);
+                    } else {
+                        commands::execute_open_file(&mut self.state, target_path);
+                    }
+                }
+            } else {
+                ctx.output_mut(|o| o.open_url = Some(open_url));
+            }
+        }
+
         self.state.check_autosave(ctx);
     }
 
@@ -332,5 +343,115 @@ impl eframe::App for DoctorMarkdownApp {
             let _ = self.state.config.save();
             self.state.session_dirty = false;
         }
+    }
+}
+
+pub fn resolve_link_path(
+    url_str: &str,
+    active_file: Option<&std::path::Path>,
+    root_path: Option<&std::path::Path>,
+) -> PathBuf {
+    let decoded_url_str =
+        urlencoding::decode(url_str).unwrap_or(std::borrow::Cow::Borrowed(url_str));
+
+    let mut target_path = if decoded_url_str.starts_with("file://") {
+        if let Ok(parsed_url) = url::Url::parse(&decoded_url_str) {
+            parsed_url.to_file_path().ok()
+        } else {
+            None
+        }
+        .unwrap_or_else(|| {
+            let path_part = decoded_url_str.strip_prefix("file://").unwrap();
+            let path_part = if let Some(stripped_localhost) = path_part.strip_prefix("localhost") {
+                stripped_localhost
+            } else {
+                path_part
+            };
+            PathBuf::from(path_part)
+        })
+    } else {
+        PathBuf::from(decoded_url_str.as_ref())
+    };
+
+    // If target_path is relative, resolve it against the active file's parent directory,
+    // fallback to the vault root, or the current working directory.
+    if target_path.is_relative() {
+        let base_dir = active_file
+            .and_then(|active| active.parent().map(|p| p.to_path_buf()))
+            .or_else(|| root_path.map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+        target_path = base_dir.join(target_path);
+    }
+
+    clean_path(&target_path)
+}
+
+pub fn clean_path(path: &std::path::Path) -> std::path::PathBuf {
+    use std::path::Component;
+    let mut clean = std::path::PathBuf::new();
+
+    for comp in path.components() {
+        match comp {
+            Component::ParentDir => {
+                match clean.components().next_back() {
+                    Some(Component::Normal(_)) => {
+                        clean.pop();
+                    }
+                    Some(Component::ParentDir) | None => {
+                        clean.push(Component::ParentDir);
+                    }
+                    _ => {} // Do nothing for RootDir or Prefix
+                }
+            }
+            Component::CurDir => {}
+            _ => {
+                clean.push(comp);
+            }
+        }
+    }
+    clean
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_resolve_link_path_relative() {
+        let active_file = Path::new("/home/user/vault/sub/note.md");
+        let root_path = Path::new("/home/user/vault");
+
+        // Relative path
+        let res = resolve_link_path("./README_2.md", Some(active_file), Some(root_path));
+        assert_eq!(res, Path::new("/home/user/vault/sub/README_2.md"));
+
+        // Relative path with parent traversal
+        let res = resolve_link_path("../README_2.md", Some(active_file), Some(root_path));
+        assert_eq!(res, Path::new("/home/user/vault/README_2.md"));
+    }
+
+    #[test]
+    fn test_resolve_link_path_absolute() {
+        let active_file = Path::new("/home/user/vault/sub/note.md");
+        let root_path = Path::new("/home/user/vault");
+
+        // Absolute path
+        let res = resolve_link_path("/media/user/README_2.md", Some(active_file), Some(root_path));
+        assert_eq!(res, Path::new("/media/user/README_2.md"));
+    }
+
+    #[test]
+    fn test_resolve_link_path_file_scheme() {
+        let active_file = Path::new("/home/user/vault/sub/note.md");
+        let root_path = Path::new("/home/user/vault");
+
+        // file:// absolute path
+        let res = resolve_link_path("file:///media/user/README_2.md", Some(active_file), Some(root_path));
+        assert_eq!(res, Path::new("/media/user/README_2.md"));
+
+        // file:// with localhost
+        let res = resolve_link_path("file://localhost/media/user/README_2.md", Some(active_file), Some(root_path));
+        assert_eq!(res, Path::new("/media/user/README_2.md"));
     }
 }
