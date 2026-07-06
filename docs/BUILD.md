@@ -68,8 +68,9 @@ The repository includes both `Justfile` and `Makefile` targets:
 - `clean` -> `cargo clean`
 - `fmt` -> `cargo fmt --all -- --check`
 - `clippy` -> `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `package-deb` -> packages the release binary and desktop files into a `.deb` package
 
-The `make` and `just` targets are intentionally aligned so either workflow can be used without learning a second command set.
+The `make` and `just` targets are intentionally aligned so either workflow can be used without learning a second command set. See [PACKAGING.md](PACKAGING.md) for detailed installation instructions.
 
 ## Docker Build
 

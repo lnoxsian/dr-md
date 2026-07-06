@@ -189,9 +189,13 @@ impl CommonMarkViewerInternal {
                     egui::Frame::group(ui.style()).show(ui, |ui| {
                         let id = self.source_id.with(self.curr_table);
                         self.curr_table += 1;
-                        egui::Grid::new(id).striped(true).show(ui, |ui| {
-                            self.render(ui, cache, options, max_width, c);
-                        });
+                        egui::ScrollArea::horizontal()
+                            .id_source(id)
+                            .show(ui, |ui| {
+                                egui::Grid::new(id.with("grid")).striped(true).show(ui, |ui| {
+                                    self.render(ui, cache, options, max_width, c);
+                                });
+                            });
                     });
 
                     newline(ui);

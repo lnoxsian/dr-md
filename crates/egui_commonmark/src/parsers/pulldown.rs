@@ -491,31 +491,35 @@ impl CommonMarkViewerInternal {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 let Table { header, rows } = parse_table(events);
 
-                egui::Grid::new(id).striped(true).show(ui, |ui| {
-                    for col in header {
-                        ui.horizontal(|ui| {
-                            for (e, src_span) in col {
-                                self.should_insert_newline = false;
-                                self.event(ui, e, src_span, cache, options, max_width);
+                egui::ScrollArea::horizontal()
+                    .id_source(id)
+                    .show(ui, |ui| {
+                        egui::Grid::new(id.with("grid")).striped(true).show(ui, |ui| {
+                            for col in header {
+                                ui.horizontal(|ui| {
+                                    for (e, src_span) in col {
+                                        self.should_insert_newline = false;
+                                        self.event(ui, e, src_span, cache, options, max_width);
+                                    }
+                                });
+                            }
+
+                            ui.end_row();
+
+                            for row in rows {
+                                for col in row {
+                                    ui.horizontal(|ui| {
+                                        for (e, src_span) in col {
+                                            self.should_insert_newline = false;
+                                            self.event(ui, e, src_span, cache, options, max_width);
+                                        }
+                                    });
+                                }
+
+                                ui.end_row();
                             }
                         });
-                    }
-
-                    ui.end_row();
-
-                    for row in rows {
-                        for col in row {
-                            ui.horizontal(|ui| {
-                                for (e, src_span) in col {
-                                    self.should_insert_newline = false;
-                                    self.event(ui, e, src_span, cache, options, max_width);
-                                }
-                            });
-                        }
-
-                        ui.end_row();
-                    }
-                });
+                    });
             });
 
             self.is_table = false;

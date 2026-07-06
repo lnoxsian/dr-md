@@ -65,3 +65,7 @@ generate-logos:
 generate-assets:
     python3 scripts/generate_assets.py --type all
 
+# Package the application as a .deb package
+package-deb:
+    @./scripts/package_deb.sh
+

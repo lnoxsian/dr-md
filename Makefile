@@ -1,4 +1,4 @@
-.PHONY: default build release check run run-release test clean fmt clippy docker-build docker-export generate-icons generate-logos generate-assets
+.PHONY: default build release check run run-release test clean fmt clippy docker-build docker-export generate-icons generate-logos generate-assets package-deb
 
 default: build
 
@@ -68,5 +68,10 @@ generate-logos:
 # Generate all application assets (icons and logos)
 generate-assets:
 	python3 scripts/generate_assets.py --type all
+
+# Package the application as a .deb package
+package-deb:
+	@./scripts/package_deb.sh
+
 
 
