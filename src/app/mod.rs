@@ -162,9 +162,13 @@ impl eframe::App for DoctorMarkdownApp {
                     }
                 }
                 ShortcutAction::Table => {
-                    let pos = self.state.active_tab().and_then(|t| t.editor.cursor_screen_pos);
+                    let pos = self
+                        .state
+                        .active_tab()
+                        .and_then(|t| t.editor.cursor_screen_pos);
                     self.state.insert_table_dialog_open = true;
-                    self.state.insert_table_dialog_pos = pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
+                    self.state.insert_table_dialog_pos =
+                        pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
                 }
                 ShortcutAction::NextTab => {
                     if !self.state.tabs.is_empty() {
@@ -196,6 +200,13 @@ impl eframe::App for DoctorMarkdownApp {
                         }
                     }
                 }
+                ShortcutAction::SearchInFile => {
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor_renderer.find_visible = true;
+                        tab.editor_renderer.focus_search_input = true;
+                        tab.editor_renderer.update_find_matches();
+                    }
+                }
                 _ => {}
             }
         }
@@ -211,7 +222,8 @@ impl eframe::App for DoctorMarkdownApp {
         }
         if request_dialog {
             self.state.insert_table_dialog_open = true;
-            self.state.insert_table_dialog_pos = cursor_pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
+            self.state.insert_table_dialog_pos =
+                cursor_pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
         }
 
         menu_bar::render_menu_bar(ctx, &mut self.state);
@@ -236,9 +248,14 @@ impl eframe::App for DoctorMarkdownApp {
             let window_response = window.show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Table");
-                    ui.add(egui::DragValue::new(&mut self.state.insert_table_rows).clamp_range(1..=100));
+                    ui.add(
+                        egui::DragValue::new(&mut self.state.insert_table_rows)
+                            .clamp_range(1..=100),
+                    );
                     ui.label("x");
-                    ui.add(egui::DragValue::new(&mut self.state.insert_table_cols).clamp_range(1..=20));
+                    ui.add(
+                        egui::DragValue::new(&mut self.state.insert_table_cols).clamp_range(1..=20),
+                    );
                 });
             });
 
@@ -278,16 +295,16 @@ impl eframe::App for DoctorMarkdownApp {
                     } else {
                         String::new()
                     };
-                    tab.editor.format_table(
-                        cols,
-                        rows,
-                        &selected_text,
-                    );
+                    tab.editor.format_table(cols, rows, &selected_text);
                     tab.editor_renderer.content_buffer = tab.editor.buffer.to_string();
 
-                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(ctx, editor_id) {
+                    if let Some(mut text_state) =
+                        egui::widgets::text_edit::TextEditState::load(ctx, editor_id)
+                    {
                         let cursor = egui::text::CCursor::new(tab.editor.cursor.char_idx);
-                        text_state.cursor.set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                        text_state
+                            .cursor
+                            .set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
                         text_state.store(ctx, editor_id);
                     }
                 }
@@ -437,7 +454,11 @@ mod tests {
         let root_path = Path::new("/home/user/vault");
 
         // Absolute path
-        let res = resolve_link_path("/media/user/README_2.md", Some(active_file), Some(root_path));
+        let res = resolve_link_path(
+            "/media/user/README_2.md",
+            Some(active_file),
+            Some(root_path),
+        );
         assert_eq!(res, Path::new("/media/user/README_2.md"));
     }
 
@@ -447,11 +468,19 @@ mod tests {
         let root_path = Path::new("/home/user/vault");
 
         // file:// absolute path
-        let res = resolve_link_path("file:///media/user/README_2.md", Some(active_file), Some(root_path));
+        let res = resolve_link_path(
+            "file:///media/user/README_2.md",
+            Some(active_file),
+            Some(root_path),
+        );
         assert_eq!(res, Path::new("/media/user/README_2.md"));
 
         // file:// with localhost
-        let res = resolve_link_path("file://localhost/media/user/README_2.md", Some(active_file), Some(root_path));
+        let res = resolve_link_path(
+            "file://localhost/media/user/README_2.md",
+            Some(active_file),
+            Some(root_path),
+        );
         assert_eq!(res, Path::new("/media/user/README_2.md"));
     }
 }

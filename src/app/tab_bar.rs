@@ -17,10 +17,7 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                 // 1. Calculate total width needed if we don't truncate at all
                 let mut total_full_width = 0.0;
                 for tab in &state.tabs {
-                    let filename = tab.path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy();
+                    let filename = tab.path.file_name().unwrap_or_default().to_string_lossy();
                     let char_count = filename.chars().count();
                     total_full_width += 32.0 + (char_count as f32) * 7.2;
                 }
@@ -124,7 +121,8 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                             close_rect = crect;
 
                                             let painter = ui.painter();
-                                            let is_close_hovered = ui.rect_contains_pointer(close_rect);
+                                            let is_close_hovered =
+                                                ui.rect_contains_pointer(close_rect);
                                             let accent = state.config.theme_accent.color();
                                             if is_close_hovered {
                                                 painter.text(
@@ -143,7 +141,11 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                                     accent.linear_multiply(0.6),
                                                 );
                                             } else if is_dirty {
-                                                painter.circle_filled(close_rect.center(), 4.0, accent);
+                                                painter.circle_filled(
+                                                    close_rect.center(),
+                                                    4.0,
+                                                    accent,
+                                                );
                                             }
                                         }
                                     });

@@ -311,6 +311,18 @@ impl FileTree {
 
         let collapsing_response = egui::CollapsingHeader::new(folder_label)
             .id_source(&entry_path)
+            .icon(|ui, openness, response| {
+                let stroke = ui.style().interact(response).fg_stroke;
+                let text = if openness > 0.5 { "-" } else { "+" };
+                let font_id = egui::TextStyle::Button.resolve(ui.style());
+                ui.painter().text(
+                    response.rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    text,
+                    font_id,
+                    stroke.color,
+                );
+            })
             .show(ui, |ui| {
                 self.render_dir(ui, &entry_path, clicked_file, active_file);
             });

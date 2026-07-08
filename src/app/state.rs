@@ -1,5 +1,5 @@
-use crate::config::{AppConfig, FileState};
 pub use crate::config::ViewMode;
+use crate::config::{AppConfig, FileState};
 use crate::editor::{Editor, renderer::EditorRenderer};
 use crate::explorer::FileTree;
 use crate::markdown::MarkdownPreview;
@@ -366,7 +366,10 @@ mod tests {
             state.file_state.last_open_tabs[0].path,
             path1.to_string_lossy().to_string()
         );
-        assert_eq!(state.file_state.last_open_tabs[0].view_mode, ViewMode::Split);
+        assert_eq!(
+            state.file_state.last_open_tabs[0].view_mode,
+            ViewMode::Split
+        );
         assert_eq!(state.file_state.last_active_tab, Some(0));
 
         // 2. Open second file

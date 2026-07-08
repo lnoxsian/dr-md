@@ -15,6 +15,16 @@ pub struct EditorRenderer {
     pub last_version: usize,
     pub previous_text: String,
     pub previous_cursor: Option<egui::text::CCursorRange>,
+    pub find_visible: bool,
+    pub find_query: String,
+    pub use_regex: bool,
+    pub case_sensitive: bool,
+    pub matches: Vec<std::ops::Range<usize>>,
+    pub active_match_index: Option<usize>,
+    pub focus_search_input: bool,
+    pub scroll_to_cursor_requested: bool,
+    pub replace_query: String,
+    pub replace_visible: bool,
 }
 
 impl EditorRenderer {
@@ -24,6 +34,16 @@ impl EditorRenderer {
             last_version: usize::MAX,
             previous_text: String::new(),
             previous_cursor: None,
+            find_visible: false,
+            find_query: String::new(),
+            use_regex: false,
+            case_sensitive: false,
+            matches: Vec::new(),
+            active_match_index: None,
+            focus_search_input: false,
+            scroll_to_cursor_requested: false,
+            replace_query: String::new(),
+            replace_visible: false,
         }
     }
 
@@ -59,6 +79,289 @@ impl EditorRenderer {
         }
         editor.sync_text(&self.content_buffer);
         self.last_version = editor.version;
+    }
+
+    pub fn update_find_matches(&mut self) {
+        self.matches.clear();
+        if self.find_query.is_empty() {
+            self.active_match_index = None;
+            return;
+        }
+
+        // Build byte-to-char index mapping
+        let mut byte_to_char = vec![0; self.content_buffer.len() + 1];
+        let mut char_idx = 0;
+        let mut byte_idx = 0;
+        for c in self.content_buffer.chars() {
+            let len = c.len_utf8();
+            for _ in 0..len {
+                if byte_idx < byte_to_char.len() {
+                    byte_to_char[byte_idx] = char_idx;
+                }
+                byte_idx += 1;
+            }
+            char_idx += 1;
+        }
+        if byte_idx < byte_to_char.len() {
+            byte_to_char[byte_idx] = char_idx;
+        }
+
+        if self.use_regex {
+            let mut builder = regex::RegexBuilder::new(&self.find_query);
+            builder.case_insensitive(!self.case_sensitive);
+            if let Ok(re) = builder.build() {
+                for m in re.find_iter(&self.content_buffer) {
+                    if m.start() < m.end() {
+                        let c_start = byte_to_char.get(m.start()).cloned().unwrap_or(char_idx);
+                        let c_end = byte_to_char.get(m.end()).cloned().unwrap_or(char_idx);
+                        self.matches.push(c_start..c_end);
+                    }
+                }
+            }
+        } else {
+            // Normal string search (case sensitive or insensitive)
+            let query = if self.case_sensitive {
+                self.find_query.clone()
+            } else {
+                self.find_query.to_lowercase()
+            };
+            let text = if self.case_sensitive {
+                self.content_buffer.clone()
+            } else {
+                self.content_buffer.to_lowercase()
+            };
+
+            let mut start_byte = 0;
+            while let Some(idx) = text[start_byte..].find(&query) {
+                let actual_start_byte = start_byte + idx;
+                let actual_end_byte = actual_start_byte + query.len();
+                let c_start = byte_to_char
+                    .get(actual_start_byte)
+                    .cloned()
+                    .unwrap_or(char_idx);
+                let c_end = byte_to_char
+                    .get(actual_end_byte)
+                    .cloned()
+                    .unwrap_or(char_idx);
+                self.matches.push(c_start..c_end);
+                start_byte = actual_end_byte;
+            }
+        }
+
+        // Adjust active_match_index
+        if self.matches.is_empty() {
+            self.active_match_index = None;
+        } else {
+            if let Some(idx) = self.active_match_index {
+                if idx >= self.matches.len() {
+                    self.active_match_index = Some(0);
+                }
+            } else {
+                self.active_match_index = Some(0);
+            }
+        }
+    }
+
+    pub fn find_matches_in_text(&self, text: &str) -> Vec<std::ops::Range<usize>> {
+        if self.find_query.is_empty() {
+            return Vec::new();
+        }
+        let mut matches = Vec::new();
+        if self.use_regex {
+            let mut builder = regex::RegexBuilder::new(&self.find_query);
+            builder.case_insensitive(!self.case_sensitive);
+            if let Ok(re) = builder.build() {
+                for mat in re.find_iter(text) {
+                    let start_char = text[..mat.start()].chars().count();
+                    let end_char = start_char + text[mat.start()..mat.end()].chars().count();
+                    matches.push(start_char..end_char);
+                }
+            }
+        } else {
+            let query = if self.case_sensitive {
+                self.find_query.clone()
+            } else {
+                self.find_query.to_lowercase()
+            };
+            let search_text = if self.case_sensitive {
+                text.to_string()
+            } else {
+                text.to_lowercase()
+            };
+
+            let mut start_pos = 0;
+            while let Some(idx) = search_text[start_pos..].find(&query) {
+                let match_start_byte = start_pos + idx;
+                let match_end_byte = match_start_byte + query.len();
+
+                let start_char = text[..match_start_byte].chars().count();
+                let end_char = start_char + text[match_start_byte..match_end_byte].chars().count();
+                matches.push(start_char..end_char);
+
+                start_pos = match_end_byte;
+                if query.is_empty() {
+                    break;
+                }
+            }
+        }
+        matches
+    }
+
+    pub fn navigate_match(&mut self, next: bool, editor: &mut Editor, ctx: &egui::Context) {
+        if self.matches.is_empty() {
+            return;
+        }
+
+        let new_idx = if let Some(curr) = self.active_match_index {
+            if next {
+                (curr + 1) % self.matches.len()
+            } else {
+                if curr == 0 {
+                    self.matches.len() - 1
+                } else {
+                    curr - 1
+                }
+            }
+        } else {
+            0
+        };
+
+        self.active_match_index = Some(new_idx);
+        let range = &self.matches[new_idx];
+
+        // Update editor state cursor range
+        editor.selection.anchor = range.start;
+        editor.selection.head = range.end;
+        editor.cursor.char_idx = range.end;
+        editor.version += 1;
+        self.scroll_to_cursor_requested = true;
+
+        // Store back in egui's text edit state so that egui scrolls to it!
+        if let Some(mut text_state) =
+            egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
+        {
+            let anchor = egui::text::CCursor::new(range.start);
+            let head = egui::text::CCursor::new(range.end);
+            text_state
+                .cursor
+                .set_char_range(Some(egui::text::CCursorRange::two(anchor, head)));
+            text_state.store(ctx, get_editor_id(editor));
+        }
+    }
+
+    pub fn replace_current(&mut self, editor: &mut Editor, ctx: &egui::Context) {
+        if self.matches.is_empty() {
+            return;
+        }
+        let idx = match self.active_match_index {
+            Some(i) => i,
+            None => return,
+        };
+        if idx >= self.matches.len() {
+            return;
+        }
+        let range = self.matches[idx].clone();
+
+        let replacement = if self.use_regex {
+            let mut builder = regex::RegexBuilder::new(&self.find_query);
+            builder.case_insensitive(!self.case_sensitive);
+            if let Ok(re) = builder.build() {
+                let matched_str = self
+                    .content_buffer
+                    .chars()
+                    .skip(range.start)
+                    .take(range.end - range.start)
+                    .collect::<String>();
+                let mut expanded = String::new();
+                if let Some(captures) = re.captures(&matched_str) {
+                    captures.expand(&self.replace_query, &mut expanded);
+                } else {
+                    expanded = self.replace_query.clone();
+                }
+                expanded
+            } else {
+                self.replace_query.clone()
+            }
+        } else {
+            self.replace_query.clone()
+        };
+
+        let mut chars: Vec<char> = self.content_buffer.chars().collect();
+        if range.start <= chars.len() && range.end <= chars.len() {
+            let replace_chars: Vec<char> = replacement.chars().collect();
+            chars.splice(range.start..range.end, replace_chars);
+            self.content_buffer = chars.into_iter().collect();
+
+            editor.sync_text(&self.content_buffer);
+            editor.version += 1;
+
+            self.update_find_matches();
+
+            let new_cursor_idx = range.start + replacement.chars().count();
+            editor.selection.anchor = new_cursor_idx;
+            editor.selection.head = new_cursor_idx;
+            editor.cursor.char_idx = new_cursor_idx;
+
+            if let Some(mut text_state) =
+                egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
+            {
+                let cursor = egui::text::CCursor::new(new_cursor_idx);
+                text_state
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
+                text_state.store(ctx, get_editor_id(editor));
+            }
+
+            if !self.matches.is_empty() {
+                let next_idx = idx.min(self.matches.len() - 1);
+                self.active_match_index = Some(next_idx);
+                let next_range = self.matches[next_idx].clone();
+                editor.selection.anchor = next_range.start;
+                editor.selection.head = next_range.end;
+                editor.cursor.char_idx = next_range.end;
+
+                if let Some(mut text_state) =
+                    egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
+                {
+                    let anchor = egui::text::CCursor::new(next_range.start);
+                    let head = egui::text::CCursor::new(next_range.end);
+                    text_state
+                        .cursor
+                        .set_char_range(Some(egui::text::CCursorRange::two(anchor, head)));
+                    text_state.store(ctx, get_editor_id(editor));
+                }
+                self.scroll_to_cursor_requested = true;
+            }
+        }
+    }
+
+    pub fn replace_all(&mut self, editor: &mut Editor) {
+        if self.matches.is_empty() {
+            return;
+        }
+
+        if self.use_regex {
+            let mut builder = regex::RegexBuilder::new(&self.find_query);
+            builder.case_insensitive(!self.case_sensitive);
+            if let Ok(re) = builder.build() {
+                let replaced = re.replace_all(&self.content_buffer, &self.replace_query);
+                self.content_buffer = replaced.into_owned();
+            }
+        } else {
+            let mut chars: Vec<char> = self.content_buffer.chars().collect();
+            let replace_chars: Vec<char> = self.replace_query.chars().collect();
+            for range in self.matches.iter().rev() {
+                if range.start <= chars.len() && range.end <= chars.len() {
+                    chars.splice(range.start..range.end, replace_chars.clone());
+                }
+            }
+            self.content_buffer = chars.into_iter().collect();
+        }
+
+        editor.sync_text(&self.content_buffer);
+        editor.version += 1;
+
+        self.update_find_matches();
     }
 
     fn process_autoclosing(
@@ -494,6 +797,157 @@ impl EditorRenderer {
         text_changed
     }
 
+    pub fn show_find_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        editor: &mut Editor,
+        enable_replace: bool,
+    ) {
+        if self.find_visible && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.find_visible = false;
+        }
+
+        self.sync_from_editor(editor, ui.ctx());
+
+        if self.find_visible {
+            egui::Frame::none()
+                .fill(ui.visuals().panel_fill)
+                .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+                .inner_margin(egui::Margin::symmetric(12.0, 6.0))
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
+
+                    egui::Grid::new("find_replace_grid")
+                        .num_columns(2)
+                        .spacing(egui::vec2(6.0, 6.0))
+                        .show(ui, |ui| {
+                            // Row 1 Column 1: Find Input Box
+                            let search_input_id = ui.make_persistent_id("find_search_input");
+                            let has_focus = ui.memory(|mem| mem.has_focus(search_input_id));
+
+                            if has_focus {
+                                if ui.input_mut(|i| {
+                                    i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)
+                                }) {
+                                    self.navigate_match(true, editor, ui.ctx());
+                                } else if ui.input_mut(|i| {
+                                    i.consume_key(egui::Modifiers::SHIFT, egui::Key::Enter)
+                                }) {
+                                    self.navigate_match(false, editor, ui.ctx());
+                                }
+
+                                if ui.input_mut(|i| {
+                                    i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)
+                                }) {
+                                    self.find_visible = false;
+                                }
+                            }
+
+                            let text_edit_res = ui.add_sized(
+                                egui::vec2(120.0, 20.0),
+                                egui::TextEdit::singleline(&mut self.find_query)
+                                    .id(search_input_id)
+                                    .hint_text("Find in file..."),
+                            );
+
+                            if self.focus_search_input {
+                                text_edit_res.request_focus();
+                                self.focus_search_input = false;
+                            }
+
+                            if text_edit_res.changed() {
+                                self.update_find_matches();
+                            }
+
+                            // Row 1 Column 2: Find Actions & Options
+                            ui.horizontal(|ui| {
+                                let case_btn = ui.selectable_label(self.case_sensitive, "Aa");
+                                if case_btn.clicked() {
+                                    self.case_sensitive = !self.case_sensitive;
+                                    self.update_find_matches();
+                                }
+                                case_btn.on_hover_text("Match Case");
+
+                                let regex_btn = ui.selectable_label(self.use_regex, ".*");
+                                if regex_btn.clicked() {
+                                    self.use_regex = !self.use_regex;
+                                    self.update_find_matches();
+                                }
+                                regex_btn.on_hover_text("Use Regular Expression");
+
+                                if !self.find_query.is_empty() {
+                                    let count = self.matches.len();
+                                    if count == 0 {
+                                        ui.label(
+                                            egui::RichText::new("No results").color(Color32::GRAY),
+                                        );
+                                    } else {
+                                        let current =
+                                            self.active_match_index.map(|i| i + 1).unwrap_or(0);
+                                        ui.label(format!("{} of {}", current, count));
+                                    }
+                                }
+
+                                let prev_btn = ui.button("⏶");
+                                if prev_btn.clicked() {
+                                    self.navigate_match(false, editor, ui.ctx());
+                                }
+                                prev_btn.on_hover_text("Previous Match (Shift+Enter)");
+
+                                let next_btn = ui.button("⏷");
+                                if next_btn.clicked() {
+                                    self.navigate_match(true, editor, ui.ctx());
+                                }
+                                next_btn.on_hover_text("Next Match (Enter)");
+
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        if ui.small_button("×").clicked() {
+                                            self.find_visible = false;
+                                        }
+
+                                        if enable_replace {
+                                            let toggle_label =
+                                                if self.replace_visible { "-" } else { "+" };
+                                            let toggle_btn = ui.button(toggle_label);
+                                            if toggle_btn.clicked() {
+                                                self.replace_visible = !self.replace_visible;
+                                            }
+                                            toggle_btn.on_hover_text("Toggle Replace Panel");
+                                        }
+                                    },
+                                );
+                            });
+                            ui.end_row();
+
+                            if enable_replace && self.replace_visible {
+                                // Row 2 Column 1: Replace Input Box
+                                let replace_input_id = ui.make_persistent_id("find_replace_input");
+                                ui.add_sized(
+                                    egui::vec2(120.0, 20.0),
+                                    egui::TextEdit::singleline(&mut self.replace_query)
+                                        .id(replace_input_id)
+                                        .hint_text("Replace with..."),
+                                );
+
+                                // Row 2 Column 2: Replace Actions
+                                ui.horizontal(|ui| {
+                                    if ui.button("Replace").clicked() {
+                                        self.replace_current(editor, ui.ctx());
+                                    }
+                                    if ui.button("Replace All").clicked() {
+                                        self.replace_all(editor);
+                                    }
+                                });
+                                ui.end_row();
+                            }
+                        });
+                });
+            ui.add_space(6.0);
+        }
+    }
+
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -514,7 +968,11 @@ impl EditorRenderer {
         }
         let is_right_click_pressed = ui.input(|i| i.pointer.secondary_pressed());
 
-        self.sync_from_editor(editor, ui.ctx());
+        self.show_find_panel(ui, editor, true);
+
+        let find_visible = self.find_visible;
+        let matches = self.matches.clone();
+        let active_match_idx = self.active_match_index;
 
         if line_numbers {
             let mut line_positions = Vec::new();
@@ -545,6 +1003,15 @@ impl EditorRenderer {
                                         link_color,
                                     );
                                     job.wrap.max_width = wrap_width.min(text_wrap_width);
+                                    if find_visible && !matches.is_empty() {
+                                        let byte_matches =
+                                            char_ranges_to_byte_ranges(text, &matches);
+                                        highlight_matches(
+                                            &mut job,
+                                            &byte_matches,
+                                            active_match_idx,
+                                        );
+                                    }
                                     let galley = ui.fonts(|f| f.layout_job(job));
 
                                     let mut positions = Vec::new();
@@ -578,6 +1045,23 @@ impl EditorRenderer {
                                             .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
                                     let edit_res = edit_output.response.clone();
+                                    if self.scroll_to_cursor_requested {
+                                        if let Some(active_idx) = self.active_match_index {
+                                            if let Some(range) = self.matches.get(active_idx) {
+                                                let local_rect =
+                                                    edit_output.galley.pos_from_ccursor(
+                                                        egui::text::CCursor::new(range.start),
+                                                    );
+                                                let screen_rect = local_rect
+                                                    .translate(edit_res.rect.min.to_vec2());
+                                                ui.scroll_to_rect(
+                                                    screen_rect,
+                                                    Some(egui::Align::Center),
+                                                );
+                                                self.scroll_to_cursor_requested = false;
+                                            }
+                                        }
+                                    }
 
                                     self.update_cursor_screen_pos(editor, &edit_output);
 
@@ -653,6 +1137,9 @@ impl EditorRenderer {
 
             if output.inner.0.changed() || output.inner.1 {
                 self.sync_to_editor(editor, ui.ctx());
+                if self.find_visible {
+                    self.update_find_matches();
+                }
             }
         } else {
             let output = egui::ScrollArea::vertical()
@@ -672,6 +1159,10 @@ impl EditorRenderer {
                                 let mut job =
                                     create_layout_job(text, font_size, default_color, link_color);
                                 job.wrap.max_width = wrap_width.min(text_wrap_width);
+                                if find_visible && !matches.is_empty() {
+                                    let byte_matches = char_ranges_to_byte_ranges(text, &matches);
+                                    highlight_matches(&mut job, &byte_matches, active_match_idx);
+                                }
                                 ui.fonts(|f| f.layout_job(job))
                             };
 
@@ -683,6 +1174,19 @@ impl EditorRenderer {
                                 .desired_width(f32::INFINITY);
                             let edit_output = text_edit.show(ui);
                             let edit_res = edit_output.response.clone();
+                            if self.scroll_to_cursor_requested {
+                                if let Some(active_idx) = self.active_match_index {
+                                    if let Some(range) = self.matches.get(active_idx) {
+                                        let local_rect = edit_output.galley.pos_from_ccursor(
+                                            egui::text::CCursor::new(range.start),
+                                        );
+                                        let screen_rect =
+                                            local_rect.translate(edit_res.rect.min.to_vec2());
+                                        ui.scroll_to_rect(screen_rect, Some(egui::Align::Center));
+                                        self.scroll_to_cursor_requested = false;
+                                    }
+                                }
+                            }
 
                             self.update_cursor_screen_pos(editor, &edit_output);
 
@@ -733,6 +1237,9 @@ impl EditorRenderer {
 
             if output.inner.0.changed() || output.inner.1 {
                 self.sync_to_editor(editor, ui.ctx());
+                if self.find_visible {
+                    self.update_find_matches();
+                }
             }
         }
     }
@@ -1149,6 +1656,105 @@ fn create_layout_job(
     job
 }
 
+fn char_ranges_to_byte_ranges(
+    s: &str,
+    char_ranges: &[std::ops::Range<usize>],
+) -> Vec<std::ops::Range<usize>> {
+    let mut byte_ranges = Vec::with_capacity(char_ranges.len());
+    let mut char_to_byte = Vec::new();
+    let mut current_byte = 0;
+    char_to_byte.push(0);
+    for c in s.chars() {
+        current_byte += c.len_utf8();
+        char_to_byte.push(current_byte);
+    }
+    for r in char_ranges {
+        let start = char_to_byte.get(r.start).cloned().unwrap_or(current_byte);
+        let end = char_to_byte.get(r.end).cloned().unwrap_or(current_byte);
+        byte_ranges.push(start..end);
+    }
+    byte_ranges
+}
+
+fn highlight_matches(
+    job: &mut LayoutJob,
+    matches: &[std::ops::Range<usize>],
+    active_match_idx: Option<usize>,
+) {
+    if matches.is_empty() {
+        return;
+    }
+
+    let mut new_sections = Vec::new();
+
+    for section in &job.sections {
+        let mut current_start = section.byte_range.start;
+        let section_end = section.byte_range.end;
+
+        // Find all matches that intersect with this section
+        for (idx, m) in matches.iter().enumerate() {
+            if m.end <= current_start {
+                continue;
+            }
+            if m.start >= section_end {
+                break;
+            }
+
+            // 1. Part before the match
+            if m.start > current_start {
+                new_sections.push(egui::text::LayoutSection {
+                    leading_space: if current_start == section.byte_range.start {
+                        section.leading_space
+                    } else {
+                        0.0
+                    },
+                    byte_range: current_start..m.start,
+                    format: section.format.clone(),
+                });
+                current_start = m.start;
+            }
+
+            // 2. Overlapping part (inside match)
+            let overlap_start = current_start;
+            let overlap_end = m.end.min(section_end);
+            if overlap_start < overlap_end {
+                let mut format = section.format.clone();
+                let is_active = Some(idx) == active_match_idx;
+                format.background = if is_active {
+                    Color32::from_rgba_unmultiplied(255, 99, 71, 140) // Tomato/Orange for active match
+                } else {
+                    Color32::from_rgba_unmultiplied(255, 215, 0, 90) // Gold/Yellow for other matches
+                };
+                new_sections.push(egui::text::LayoutSection {
+                    leading_space: if current_start == section.byte_range.start {
+                        section.leading_space
+                    } else {
+                        0.0
+                    },
+                    byte_range: overlap_start..overlap_end,
+                    format,
+                });
+                current_start = overlap_end;
+            }
+        }
+
+        // 3. Remaining part after all intersecting matches
+        if current_start < section_end {
+            new_sections.push(egui::text::LayoutSection {
+                leading_space: if current_start == section.byte_range.start {
+                    section.leading_space
+                } else {
+                    0.0
+                },
+                byte_range: current_start..section_end,
+                format: section.format.clone(),
+            });
+        }
+    }
+
+    job.sections = new_sections;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1213,5 +1819,105 @@ mod tests {
                 input_pair
             );
         }
+    }
+
+    #[test]
+    fn test_find_in_file_string_and_regex() {
+        let mut renderer = EditorRenderer::new();
+        renderer.content_buffer =
+            "Hello world! This is a test file for search. Hello again!".to_string();
+
+        // 1. Literal string search, case insensitive (default)
+        renderer.find_query = "hello".to_string();
+        renderer.case_sensitive = false;
+        renderer.use_regex = false;
+        renderer.update_find_matches();
+        assert_eq!(renderer.matches.len(), 2);
+        assert_eq!(renderer.matches[0], 0..5); // "Hello"
+        assert_eq!(renderer.matches[1], 45..50); // "Hello"
+        assert_eq!(renderer.active_match_index, Some(0));
+
+        // 2. Literal string search, case sensitive
+        renderer.find_query = "Hello".to_string();
+        renderer.case_sensitive = true;
+        renderer.update_find_matches();
+        assert_eq!(renderer.matches.len(), 2);
+        assert_eq!(renderer.matches[0], 0..5); // "Hello"
+        assert_eq!(renderer.matches[1], 45..50); // "Hello"
+        assert_eq!(renderer.active_match_index, Some(0));
+
+        // 3. Regex search, case insensitive
+        renderer.find_query = "th.s".to_string();
+        renderer.case_sensitive = false;
+        renderer.use_regex = true;
+        renderer.update_find_matches();
+        assert_eq!(renderer.matches.len(), 1);
+        assert_eq!(renderer.matches[0], 13..17); // "This"
+        assert_eq!(renderer.active_match_index, Some(0));
+
+        // 4. Regex search, case sensitive
+        renderer.case_sensitive = true;
+        renderer.update_find_matches();
+        assert_eq!(renderer.matches.len(), 0);
+        assert_eq!(renderer.active_match_index, None);
+
+        // 5. Navigate matches
+        renderer.find_query = "world".to_string();
+        renderer.case_sensitive = true;
+        renderer.use_regex = false;
+        renderer.update_find_matches();
+        assert_eq!(renderer.matches.len(), 1);
+
+        renderer.find_query = "Hello".to_string();
+        renderer.case_sensitive = false;
+        renderer.update_find_matches();
+        assert_eq!(renderer.matches.len(), 2);
+        assert_eq!(renderer.active_match_index, Some(0));
+
+        let mut editor = Editor::new();
+        editor.buffer = crate::editor::EditBuffer::from_str(&renderer.content_buffer);
+
+        let ctx = egui::Context::default();
+        renderer.navigate_match(true, &mut editor, &ctx);
+        assert_eq!(renderer.active_match_index, Some(1));
+        assert_eq!(editor.selection.anchor, 45);
+        assert_eq!(editor.selection.head, 50);
+
+        renderer.navigate_match(true, &mut editor, &ctx);
+        assert_eq!(renderer.active_match_index, Some(0));
+        assert_eq!(editor.selection.anchor, 0);
+        assert_eq!(editor.selection.head, 5);
+
+        renderer.navigate_match(false, &mut editor, &ctx);
+        assert_eq!(renderer.active_match_index, Some(1));
+        assert_eq!(editor.selection.anchor, 45);
+        assert_eq!(editor.selection.head, 50);
+
+        // 6. Replace current match
+        renderer.replace_query = "Hi".to_string();
+        // Currently active match is matches[1] which is "Hello" at 45..50
+        renderer.replace_current(&mut editor, &ctx);
+        // String should become: "Hello world! This is a test file for search. Hi again!"
+        assert_eq!(
+            renderer.content_buffer,
+            "Hello world! This is a test file for search. Hi again!"
+        );
+        // Since we replaced the match, we should have 1 match remaining (the "Hello" at the beginning)
+        assert_eq!(renderer.matches.len(), 1);
+        assert_eq!(renderer.matches[0], 0..5); // "Hello" at index 0
+
+        // 7. Replace all matches
+        renderer.find_query = "a".to_string();
+        renderer.replace_query = "x".to_string();
+        renderer.case_sensitive = true;
+        renderer.use_regex = false;
+        renderer.update_find_matches(); // matches "a" in "a test", "search", "again"
+        renderer.replace_all(&mut editor);
+        // check that all 'a' characters are replaced with 'x'
+        // "Hello world! This is a test file for search. Hi again!" -> "Hello world! This is x test file for sexrch. Hi xgxin!"
+        assert_eq!(
+            renderer.content_buffer,
+            "Hello world! This is x test file for sexrch. Hi xgxin!"
+        );
     }
 }

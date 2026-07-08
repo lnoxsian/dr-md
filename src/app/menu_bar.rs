@@ -201,6 +201,15 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         }
                         ui.close_menu();
                     }
+                    if ui.button("Find in File (Ctrl+F)").clicked() {
+                        state.sync_cursor_from_egui(ctx);
+                        if let Some(tab) = state.active_tab_mut() {
+                            tab.editor_renderer.find_visible = true;
+                            tab.editor_renderer.focus_search_input = true;
+                            tab.editor_renderer.update_find_matches();
+                        }
+                        ui.close_menu();
+                    }
                     ui.separator();
                     // Single Line/Word Operations
                     if ui.button("Bold (Ctrl+B)").clicked() {
@@ -249,7 +258,8 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     }
                     if ui.button("Table (Ctrl+Shift+T)").clicked() {
                         state.insert_table_dialog_open = true;
-                        state.insert_table_dialog_pos = state.active_tab()
+                        state.insert_table_dialog_pos = state
+                            .active_tab()
                             .and_then(|t| t.editor.cursor_screen_pos)
                             .or_else(|| ctx.input(|i| i.pointer.latest_pos()));
                         ui.close_menu();

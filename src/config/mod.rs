@@ -518,8 +518,7 @@ mod tests {
     fn test_state_path() {
         let path = FileState::get_state_path().unwrap();
         assert!(
-            path.to_string_lossy()
-                .ends_with(".config/dr-md/state.toml")
+            path.to_string_lossy().ends_with(".config/dr-md/state.toml")
                 || path
                     .to_string_lossy()
                     .ends_with(".config\\dr-md\\state.toml")

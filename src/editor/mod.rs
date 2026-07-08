@@ -210,7 +210,10 @@ impl Editor {
                         format!("<!-- {} -->", selected_text)
                     }
                 }
-                "table" => format!("| {} | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |", selected_text),
+                "table" => format!(
+                    "| {} | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |",
+                    selected_text
+                ),
                 _ => selected_text,
             };
 
@@ -229,7 +232,9 @@ impl Editor {
                 "bulleted_list" => "- ",
                 "indent" => "> ",
                 "comment" => "<!--  -->",
-                "table" => "| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |",
+                "table" => {
+                    "| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |"
+                }
                 _ => "",
             };
             self.buffer.insert(self.cursor.char_idx, placeholder);
@@ -262,7 +267,11 @@ impl Editor {
 
         // 1. Headers
         table_str.push('|');
-        let first_header = if selected_text.is_empty() { "Header 1".to_string() } else { selected_text.to_string() };
+        let first_header = if selected_text.is_empty() {
+            "Header 1".to_string()
+        } else {
+            selected_text.to_string()
+        };
         table_str.push_str(&format!(" {} |", first_header));
         for c in 2..=cols {
             table_str.push_str(&format!(" Header {} |", c));

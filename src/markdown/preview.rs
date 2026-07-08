@@ -1,4 +1,5 @@
 use crate::editor::Editor;
+use crate::editor::renderer::EditorRenderer;
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 pub struct MarkdownPreview {
@@ -30,12 +31,18 @@ impl MarkdownPreview {
         &mut self,
         ui: &mut egui::Ui,
         editor: &mut Editor,
+        editor_renderer: &mut EditorRenderer,
         tab_path: &std::path::Path,
         font_size: f32,
         theme: &str,
         mirror_mode: bool,
+        show_search: bool,
     ) {
-        let path_changed = self.last_path.as_ref().map(|p| p.as_path()) != Some(tab_path);
+        if show_search {
+            editor_renderer.show_find_panel(ui, editor, false);
+        }
+
+        let path_changed = self.last_path.as_deref() != Some(tab_path);
         if path_changed || editor.version != self.last_version {
             self.cached_content = editor.buffer.to_string();
             self.last_version = editor.version;
@@ -78,12 +85,10 @@ impl MarkdownPreview {
                 .inner_margin(egui::Margin::symmetric(24.0, 8.0))
                 .show(ui, |ui| {
                     let mut style = ui.style().as_ref().clone();
-                    let body_font =
-                        egui::FontId::new(font_size, egui::FontFamily::Proportional);
+                    let body_font = egui::FontId::new(font_size, egui::FontFamily::Proportional);
                     let heading_font =
                         egui::FontId::new(font_size * 1.4, egui::FontFamily::Proportional);
-                    let monospace_font =
-                        egui::FontId::new(font_size, egui::FontFamily::Monospace);
+                    let monospace_font = egui::FontId::new(font_size, egui::FontFamily::Monospace);
 
                     style.text_styles.insert(egui::TextStyle::Body, body_font);
                     style
@@ -107,6 +112,61 @@ impl MarkdownPreview {
                     }
 
                     viewer.show_mut(ui, &mut self.cache, &mut processed);
+
+                    // Highlight matching search keywords inside the preview pane
+                    if editor_renderer.find_visible && !editor_renderer.find_query.is_empty() {
+                        let mut highlight_rects = Vec::new();
+                        ui.painter().for_each_shape(|clipped_shape| {
+                            if let egui::Shape::Text(text_shape) = &clipped_shape.shape {
+                                let text = &text_shape.galley.job.text;
+                                if text.is_empty() {
+                                    return;
+                                }
+
+                                let matches = editor_renderer.find_matches_in_text(text);
+
+                                for range in matches {
+                                    let pos_start = text_shape
+                                        .galley
+                                        .pos_from_ccursor(egui::text::CCursor::new(range.start));
+                                    let pos_end = text_shape
+                                        .galley
+                                        .pos_from_ccursor(egui::text::CCursor::new(range.end));
+
+                                    if pos_start.min.y == pos_end.min.y {
+                                        let local_rect = egui::Rect::from_min_max(
+                                            pos_start.min,
+                                            egui::pos2(pos_end.min.x, pos_start.max.y),
+                                        );
+                                        let screen_rect =
+                                            local_rect.translate(text_shape.pos.to_vec2());
+                                        highlight_rects.push(screen_rect);
+                                    } else {
+                                        let local_rect = egui::Rect::from_min_max(
+                                            pos_start.min,
+                                            egui::pos2(
+                                                text_shape.galley.rect.max.x,
+                                                pos_start.max.y,
+                                            ),
+                                        );
+                                        let screen_rect =
+                                            local_rect.translate(text_shape.pos.to_vec2());
+                                        highlight_rects.push(screen_rect);
+                                    }
+                                }
+                            }
+                        });
+
+                        let highlight_color =
+                            egui::Color32::from_rgba_unmultiplied(255, 220, 0, 90);
+                        for rect in highlight_rects {
+                            ui.painter().rect_filled(
+                                rect,
+                                egui::Rounding::same(2.0),
+                                highlight_color,
+                            );
+                        }
+                    }
 
                     // Add bottom padding inside scroll viewport
                     ui.add_space(100.0);
@@ -186,5 +246,44 @@ impl MarkdownPreview {
                 self.last_version = editor.version;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::editor::Editor;
+    use crate::editor::renderer::EditorRenderer;
+
+    #[test]
+    fn test_preview_search_highlighting() {
+        let ctx = egui::Context::default();
+        let mut preview = MarkdownPreview::new();
+        let mut editor = Editor::new();
+        let mut renderer = EditorRenderer::new();
+
+        editor.set_text("Hello world! This is a test file with Hello keywords.");
+        renderer.content_buffer = editor.buffer.to_string();
+        renderer.find_visible = true;
+        renderer.find_query = "Hello".to_string();
+        renderer.update_find_matches();
+
+        let _output = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                preview.show(
+                    ui,
+                    &mut editor,
+                    &mut renderer,
+                    std::path::Path::new("test.md"),
+                    14.0,
+                    "dark",
+                    false,
+                    true,
+                );
+            });
+        });
+
+        // The preview ran successfully and highlighted matches!
+        assert_eq!(renderer.matches.len(), 2);
     }
 }

@@ -27,8 +27,15 @@ thiserror = "1.0"
 rfd = "0.14"
 arboard = "3.6.1"
 url = "2.5"
+regex = "1.10"
 
 [patch.crates-io]
 egui_commonmark = { path = "crates/egui_commonmark" }
+
+[profile.release]
+# opt-level = 3          # Maximize speed optimizations
+# lto = true             # Enable Link-Time Optimization (increases execution speed)
+# codegen-units = 1      # Set codegen units to 1 for maximum LTO optimization scope
+# strip = true           # Remove symbols and debug information to shrink binary size
 
 

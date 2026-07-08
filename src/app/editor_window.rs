@@ -51,10 +51,12 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                 state.preview.show(
                                     &mut content_ui,
                                     &mut tab.editor,
+                                    &mut tab.editor_renderer,
                                     &tab.path,
                                     font_size,
                                     &theme,
                                     state.config.mirror_mode,
+                                    true,
                                 );
                             }
                             ViewMode::Split => {
@@ -162,10 +164,12 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                     state.preview.show(
                                         &mut bottom_ui,
                                         &mut tab.editor,
+                                        &mut tab.editor_renderer,
                                         &tab.path,
                                         font_size,
                                         &theme,
                                         state.config.mirror_mode,
+                                        false,
                                     );
                                 } else {
                                     // Horizontal Split (Side-by-Side)
@@ -264,10 +268,12 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                     state.preview.show(
                                         &mut right_ui,
                                         &mut tab.editor,
+                                        &mut tab.editor_renderer,
                                         &tab.path,
                                         font_size,
                                         &theme,
                                         state.config.mirror_mode,
+                                        false,
                                     );
                                 }
                             }
