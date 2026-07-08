@@ -25,15 +25,25 @@ rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR/DEBIAN"
 mkdir -p "$STAGING_DIR/usr/bin"
 mkdir -p "$STAGING_DIR/usr/share/applications"
-mkdir -p "$STAGING_DIR/usr/share/icons/hicolor/256x256/apps"
 
 # Copy binary
 cp target/release/dr-md "$STAGING_DIR/usr/bin/"
 chmod 755 "$STAGING_DIR/usr/bin/dr-md"
 
-# Copy icon
-if [ -f "assets/icons/dr-md_256x256.png" ]; then
-    cp assets/icons/dr-md_256x256.png "$STAGING_DIR/usr/share/icons/hicolor/256x256/apps/dr-md.png"
+# Copy icons of all sizes
+for size in 16 32 48 64 128 256 512; do
+    if [ -f "assets/icons/dr-md_${size}x${size}.png" ]; then
+        mkdir -p "$STAGING_DIR/usr/share/icons/hicolor/${size}x${size}/apps"
+        cp "assets/icons/dr-md_${size}x${size}.png" "$STAGING_DIR/usr/share/icons/hicolor/${size}x${size}/apps/dr-md.png"
+    fi
+done
+
+# Copy fallback icon to pixmaps (standard fallback for older/other desktop environments)
+mkdir -p "$STAGING_DIR/usr/share/pixmaps"
+if [ -f "assets/icons/dr-md_48x48.png" ]; then
+    cp assets/icons/dr-md_48x48.png "$STAGING_DIR/usr/share/pixmaps/dr-md.png"
+elif [ -f "assets/icons/dr-md_256x256.png" ]; then
+    cp assets/icons/dr-md_256x256.png "$STAGING_DIR/usr/share/pixmaps/dr-md.png"
 fi
 
 # Write desktop entry
@@ -63,6 +73,44 @@ Description: Sleek, high-performance offline Markdown editor built with egui.
  Doctor Markdown (dr.md) is a lightweight editor featuring live preview,
  syntax highlighting, workspace file tree, and built-in theme support.
 EOF
+
+# Write postinst script to update desktop database and icon cache
+cat << 'EOF' > "$STAGING_DIR/DEBIAN/postinst"
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    # Update desktop database
+    if [ -x /usr/bin/update-desktop-database ]; then
+        update-desktop-database -q /usr/share/applications
+    fi
+
+    # Update icon cache
+    if [ -x /usr/bin/gtk-update-icon-cache ]; then
+        gtk-update-icon-cache -f -t /usr/share/icons/hicolor
+    fi
+fi
+EOF
+chmod 755 "$STAGING_DIR/DEBIAN/postinst"
+
+# Write postrm script to update desktop database and icon cache on removal
+cat << 'EOF' > "$STAGING_DIR/DEBIAN/postrm"
+#!/bin/sh
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    # Update desktop database
+    if [ -x /usr/bin/update-desktop-database ]; then
+        update-desktop-database -q /usr/share/applications
+    fi
+
+    # Update icon cache
+    if [ -x /usr/bin/gtk-update-icon-cache ]; then
+        gtk-update-icon-cache -f -t /usr/share/icons/hicolor
+    fi
+fi
+EOF
+chmod 755 "$STAGING_DIR/DEBIAN/postrm"
 
 # Build package
 echo "Building Debian package..."
