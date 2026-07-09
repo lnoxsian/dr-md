@@ -1,4 +1,4 @@
-.PHONY: default build release check run run-release test clean fmt clippy docker-build docker-export generate-icons generate-logos generate-assets package-deb
+.PHONY: default build release check run run-release test clean fmt clippy docker-build docker-export generate-icons generate-logos generate-assets package-deb package-rpm
 
 default: build
 
@@ -73,5 +73,6 @@ generate-assets:
 package-deb:
 	@./scripts/package_deb.sh
 
-
-
+# Package the application as a .rpm package
+package-rpm:
+	@./scripts/package_rpm.sh

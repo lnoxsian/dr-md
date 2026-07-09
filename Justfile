@@ -69,3 +69,7 @@ generate-assets:
 package-deb:
     @./scripts/package_deb.sh
 
+# Package the application as a .rpm package
+package-rpm:
+    @./scripts/package_rpm.sh
+
