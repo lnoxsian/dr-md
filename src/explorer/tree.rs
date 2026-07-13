@@ -108,7 +108,7 @@ impl FileTree {
         }
 
         let mut clicked_file = None;
-        self.render_dir(ui, root, &mut clicked_file, active_file);
+        self.render_dir(ui, root, &mut clicked_file, active_file, true);
 
         // Render expanding empty space at the bottom of the tree for root actions
         let remaining_space = ui.available_size();
@@ -198,14 +198,18 @@ impl FileTree {
         path: &Path,
         clicked_file: &mut Option<PathBuf>,
         active_file: &mut Option<PathBuf>,
+        is_root: bool,
     ) {
+        let mut rendered_count = 0;
         if let Some(creating) = &self.creating_type {
             match creating {
                 CreatingType::File { parent_dir } if parent_dir == path => {
                     self.render_creation_input(ui, path, true, clicked_file, active_file);
+                    rendered_count += 1;
                 }
                 CreatingType::Folder { parent_dir } if parent_dir == path => {
                     self.render_creation_input(ui, path, false, clicked_file, active_file);
+                    rendered_count += 1;
                 }
                 _ => {}
             }
@@ -240,15 +244,28 @@ impl FileTree {
                         clicked_file,
                         active_file,
                     );
+                    rendered_count += 1;
                     continue;
                 }
 
                 if is_dir {
                     self.render_folder_node(ui, entry_path, file_name, clicked_file, active_file);
+                    rendered_count += 1;
                 } else {
-                    self.render_file_node(ui, entry_path, file_name, clicked_file, active_file);
+                    let is_md = entry_path
+                        .extension()
+                        .map(|e| e == "md" || e == "markdown")
+                        .unwrap_or(false);
+                    if is_md {
+                        self.render_file_node(ui, entry_path, file_name, clicked_file, active_file);
+                        rendered_count += 1;
+                    }
                 }
             }
+        }
+
+        if !is_root && rendered_count == 0 {
+            ui.weak("..");
         }
     }
 
@@ -299,6 +316,7 @@ impl FileTree {
                 &file_name,
                 0.0,
                 egui::TextFormat {
+                    font_id: egui::TextStyle::Body.resolve(ui.style()),
                     color: text_color,
                     underline: egui::Stroke::new(1.0, accent_color),
                     ..Default::default()
@@ -324,7 +342,7 @@ impl FileTree {
                 );
             })
             .show(ui, |ui| {
-                self.render_dir(ui, &entry_path, clicked_file, active_file);
+                self.render_dir(ui, &entry_path, clicked_file, active_file, false);
             });
 
         let header_response = ui.interact(

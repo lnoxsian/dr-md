@@ -450,6 +450,97 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     ctx.set_style(style);
 }
 
+pub fn setup_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+
+    // Helper closure to find and load existing fonts from a list of paths
+    let mut load_fallbacks = |base_name: &str, paths: &[&str], max_count: usize| -> usize {
+        let mut loaded = 0;
+        for path in paths {
+            if loaded >= max_count {
+                break;
+            }
+            if std::path::Path::new(path).exists() {
+                if let Ok(bytes) = std::fs::read(path) {
+                    let mut font_data = egui::FontData::from_owned(bytes);
+                    // ab_glyph/egui supports loading first face from ttc collections automatically if we set index to 0
+                    font_data.index = 0;
+                    let name = format!("{}_{}", base_name, loaded);
+                    fonts.font_data.insert(name.clone(), font_data);
+                    
+                    // Add as fallback to Proportional and Monospace families
+                    if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+                        family.push(name.clone());
+                    }
+                    if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
+                        family.push(name.clone());
+                    }
+                    loaded += 1;
+                }
+            }
+        }
+        loaded
+    };
+
+    // Candidates for general sans/serif fallback
+    let sans_paths = &[
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+    ];
+
+    // Candidates for Chinese, Japanese, and Korean (CJK) - Prioritize Noto Sans CJK and system fonts with full CJK coverage
+    let cjk_paths = &[
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/truetype/droid/DroidSansFallback.ttf",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "C:\\Windows\\Fonts\\msyh.ttc",
+        "C:\\Windows\\Fonts\\simsun.ttc",
+        "C:\\Windows\\Fonts\\malgun.ttf",
+        "C:\\Windows\\Fonts\\meiryo.ttc",
+        "/System/Library/Fonts/PingFang.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+    ];
+
+    // Candidates for Arabic
+    let arabic_paths = &[
+        "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf",
+        "C:\\Windows\\Fonts\\tahoma.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "/System/Library/Fonts/GeezaPro.ttc",
+        "/System/Library/Fonts/Supplemental/DecoTypeNaskh.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+    ];
+
+    // Candidates for Emoji
+    let emoji_paths = &[
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf",
+        "/usr/share/fonts/truetype/emoji/NotoColorEmoji.ttf",
+        "C:\\Windows\\Fonts\\seguiemj.ttf",
+        "/System/Library/Fonts/Apple Color Emoji.ttc",
+        "/System/Library/Fonts/Core/Apple Color Emoji.ttc",
+    ];
+
+    load_fallbacks("fallback_sans", sans_paths, 2);
+    load_fallbacks("fallback_cjk", cjk_paths, 3);
+    load_fallbacks("fallback_arabic", arabic_paths, 2);
+    load_fallbacks("fallback_emoji", emoji_paths, 2);
+
+    ctx.set_fonts(fonts);
+}
+
 impl AppConfig {
     fn get_config_path() -> Option<std::path::PathBuf> {
         #[cfg(target_os = "windows")]
@@ -524,5 +615,11 @@ mod tests {
                     .ends_with(".config\\dr-md\\state.toml")
                 || cfg!(target_os = "windows")
         );
+    }
+
+    #[test]
+    fn test_setup_fonts() {
+        let ctx = egui::Context::default();
+        setup_fonts(&ctx);
     }
 }

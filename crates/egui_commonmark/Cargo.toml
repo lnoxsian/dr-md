@@ -53,6 +53,21 @@ version = "0.27"
 [dependencies.egui_extras]
 version = "0.27"
 
+[dependencies.mermaid-rs-renderer]
+version = "0.3.1"
+
+[dependencies.usvg]
+version = "0.47"
+
+[dependencies.resvg]
+version = "0.47"
+
+[dependencies.tiny-skia]
+version = "0.12"
+
+[dependencies.fontdb]
+version = "0.23"
+
 [dependencies.pulldown-cmark]
 version = "0.10"
 optional = true
@@ -90,4 +105,4 @@ load-images = [
     "egui_extras/file",
 ]
 pulldown_cmark = ["dep:pulldown-cmark"]
-svg = ["egui_extras/svg"]
+svg = ["egui_extras/svg", "egui_extras/resvg"]

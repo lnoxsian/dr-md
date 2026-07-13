@@ -35,6 +35,7 @@ use egui::{self, text::LayoutJob, Id, RichText, TextStyle, Ui};
 mod alerts;
 mod elements;
 mod parsers;
+mod mermaid;
 
 pub use alerts::*;
 
@@ -71,6 +72,7 @@ pub struct CommonMarkCache {
     #[cfg(feature = "pulldown_cmark")]
     scroll: HashMap<Id, ScrollableCache>,
     has_installed_loaders: bool,
+    pub(crate) mermaid_cache: std::sync::Arc<std::sync::Mutex<HashMap<u64, crate::mermaid::MermaidCacheEntry>>>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -85,6 +87,7 @@ impl Default for CommonMarkCache {
             #[cfg(feature = "pulldown_cmark")]
             scroll: Default::default(),
             has_installed_loaders: false,
+            mermaid_cache: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
 }
@@ -644,6 +647,18 @@ impl FencedCodeBlock {
         options: &CommonMarkOptions,
         max_width: f32,
     ) {
+        if self.lang == "mermaid" {
+            if let Err(err) = crate::mermaid::render_mermaid(ui, cache, &self.content, options.max_width(ui)) {
+                // Show a warning/error label, then fall back to standard code block rendering
+                ui.colored_label(
+                    egui::Color32::RED,
+                    format!("Mermaid rendering error: {}", err),
+                );
+            } else {
+                return;
+            }
+        }
+
         ui.scope(|ui| {
             Self::pre_syntax_highlighting(cache, options, ui);
 

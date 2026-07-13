@@ -16,6 +16,7 @@ pub struct DoctorMarkdownApp {
 impl DoctorMarkdownApp {
     pub fn new(cc: &eframe::CreationContext<'_>, root_path: Option<PathBuf>) -> Self {
         let state = AppState::new(root_path);
+        crate::config::setup_fonts(&cc.egui_ctx);
         crate::config::apply_theme(&cc.egui_ctx, &state.config);
 
         Self { state }
@@ -313,12 +314,45 @@ impl eframe::App for DoctorMarkdownApp {
 
         if let Some(open_url) = ctx.output_mut(|o| o.open_url.take()) {
             let url_str = open_url.url.as_str();
-            if !url_str.starts_with("http://")
-                && !url_str.starts_with("https://")
-                && !url_str.starts_with("mailto:")
+            
+            let (path_part, anchor_part) = if let Some(idx) = url_str.find('#') {
+                (&url_str[..idx], Some(&url_str[idx + 1..]))
+            } else {
+                (url_str, None)
+            };
+
+            if path_part.is_empty() {
+                // Current file anchor link
+                if let Some(anchor) = anchor_part {
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        let doc_text = tab.editor.buffer.to_string();
+                        if let Some(line_idx) = find_heading_line(&doc_text, anchor) {
+                            // 1. Move editor cursor to this line
+                            let char_idx = tab.editor.buffer.rope.line_to_char(line_idx);
+                            tab.editor.cursor.char_idx = char_idx;
+                            tab.editor.selection.anchor = char_idx;
+                            tab.editor.selection.head = char_idx;
+
+                            // 2. Set scroll target for the preview
+                            let total_lines = tab.editor.buffer.rope.len_lines();
+                            let ratio = if total_lines > 1 {
+                                line_idx as f32 / (total_lines - 1) as f32
+                            } else {
+                                0.0
+                            };
+                            let max_scroll = (self.state.preview.last_content_height - self.state.preview.last_viewport_height).max(0.0);
+                            let target_y = ratio * self.state.preview.last_content_height;
+                            let target_offset = (target_y - self.state.preview.last_viewport_height / 2.0).clamp(0.0, max_scroll);
+                            self.state.preview.scroll_target_y = Some(target_offset);
+                        }
+                    }
+                }
+            } else if !path_part.starts_with("http://")
+                && !path_part.starts_with("https://")
+                && !path_part.starts_with("mailto:")
             {
                 let mut target_path = resolve_link_path(
-                    url_str,
+                    path_part,
                     self.state.vault.active_file.as_deref(),
                     self.state.vault.root_path.as_deref(),
                 );
@@ -335,16 +369,35 @@ impl eframe::App for DoctorMarkdownApp {
                 if target_path.is_dir() {
                     commands::execute_open_folder(&mut self.state, target_path);
                 } else if target_path.exists() && target_path.is_file() {
-                    commands::execute_open_file(&mut self.state, target_path);
+                    commands::execute_open_file(&mut self.state, target_path.clone());
+                    
+                    // If there was an anchor, jump to it in the newly opened file!
+                    if let Some(anchor) = anchor_part {
+                        if let Some(tab) = self.state.active_tab_mut() {
+                            let doc_text = tab.editor.buffer.to_string();
+                            if let Some(line_idx) = find_heading_line(&doc_text, anchor) {
+                                // 1. Move editor cursor to this line
+                                let char_idx = tab.editor.buffer.rope.line_to_char(line_idx);
+                                tab.editor.cursor.char_idx = char_idx;
+                                tab.editor.selection.anchor = char_idx;
+                                tab.editor.selection.head = char_idx;
+
+                                // 2. Set scroll target for the preview
+                                let total_lines = tab.editor.buffer.rope.len_lines();
+                                let ratio = if total_lines > 1 {
+                                    line_idx as f32 / (total_lines - 1) as f32
+                                } else {
+                                    0.0
+                                };
+                                let max_scroll = (self.state.preview.last_content_height - self.state.preview.last_viewport_height).max(0.0);
+                                let target_y = ratio * self.state.preview.last_content_height;
+                                let target_offset = (target_y - self.state.preview.last_viewport_height / 2.0).clamp(0.0, max_scroll);
+                                self.state.preview.scroll_target_y = Some(target_offset);
+                            }
+                        }
+                    }
                 } else {
-                    if let Some(parent) = target_path.parent() {
-                        std::fs::create_dir_all(parent).ok();
-                    }
-                    if std::fs::write(&target_path, "").is_ok() {
-                        commands::execute_open_file(&mut self.state, target_path);
-                    } else {
-                        commands::execute_open_file(&mut self.state, target_path);
-                    }
+                    tracing::warn!("Linked path does not exist: {:?}", target_path);
                 }
             } else {
                 ctx.output_mut(|o| o.open_url = Some(open_url));
@@ -429,10 +482,67 @@ pub fn clean_path(path: &std::path::Path) -> std::path::PathBuf {
     clean
 }
 
+pub fn slugify(text: &str) -> String {
+    let mut slug = String::new();
+    let mut last_was_hyphen = false;
+    for c in text.chars() {
+        if c.is_alphanumeric() {
+            slug.push(c.to_ascii_lowercase());
+            last_was_hyphen = false;
+        } else if c.is_whitespace() || c == '-' || c == '_' {
+            if !last_was_hyphen {
+                slug.push('-');
+                last_was_hyphen = true;
+            }
+        }
+    }
+    let mut trimmed = slug.as_str();
+    while trimmed.starts_with('-') || trimmed.starts_with('_') {
+        trimmed = &trimmed[1..];
+    }
+    while trimmed.ends_with('-') || trimmed.ends_with('_') {
+        trimmed = &trimmed[..trimmed.len() - 1];
+    }
+    trimmed.to_string()
+}
+
+pub fn find_heading_line(text: &str, anchor: &str) -> Option<usize> {
+    for (line_idx, line) in text.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') {
+            let hash_count = trimmed.chars().take_while(|&c| c == '#').count();
+            let rest = &trimmed[hash_count..];
+            if rest.is_empty() || rest.chars().next().unwrap().is_whitespace() {
+                let heading_text = rest.trim();
+                if slugify(heading_text) == anchor {
+                    return Some(line_idx);
+                }
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn test_slugify() {
+        assert_eq!(slugify("Section Name"), "section-name");
+        assert_eq!(slugify("## My Cool Heading! (Extra)"), "my-cool-heading-extra");
+        assert_eq!(slugify("**Bold** Heading"), "bold-heading");
+    }
+
+    #[test]
+    fn test_find_heading_line() {
+        let doc = "# Title\n\n## Section One\nSome text.\n\n### Sub-section\nMore text.";
+        assert_eq!(find_heading_line(doc, "title"), Some(0));
+        assert_eq!(find_heading_line(doc, "section-one"), Some(2));
+        assert_eq!(find_heading_line(doc, "sub-section"), Some(5));
+        assert_eq!(find_heading_line(doc, "non-existent"), None);
+    }
 
     #[test]
     fn test_resolve_link_path_relative() {
