@@ -948,6 +948,152 @@ impl EditorRenderer {
         }
     }
 
+    fn handle_tab_key(
+        &mut self,
+        ui: &mut egui::Ui,
+        editor_id: egui::Id,
+        tab_pressed: bool,
+        shift_tab_pressed: bool,
+        tab_width: usize,
+    ) -> bool {
+        if !tab_pressed && !shift_tab_pressed {
+            return false;
+        }
+
+        ui.memory_mut(|mem| mem.request_focus(editor_id));
+
+        if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(ui.ctx(), editor_id) {
+            if let Some(range) = text_state.cursor.char_range() {
+                let spaces = " ".repeat(tab_width);
+                
+                if range.primary.index == range.secondary.index {
+                    // No selection - single cursor
+                    let cursor_idx = range.primary.index;
+                    let chars: Vec<char> = self.content_buffer.chars().collect();
+                    
+                    if tab_pressed {
+                        let mut new_chars = chars;
+                        let insert_idx = cursor_idx.min(new_chars.len());
+                        for c in spaces.chars().rev() {
+                            new_chars.insert(insert_idx, c);
+                        }
+                        self.content_buffer = new_chars.into_iter().collect();
+                        let new_cursor = cursor_idx + tab_width;
+                        let ccursor = egui::text::CCursor::new(new_cursor);
+                        text_state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                    } else {
+                        // Shift + Tab (unindent current line)
+                        let mut line_start = 0;
+                        for i in (0..cursor_idx.min(chars.len())).rev() {
+                            if chars[i] == '\n' {
+                                line_start = i + 1;
+                                break;
+                            }
+                        }
+                        let mut spaces_to_remove = 0;
+                        for i in 0..tab_width {
+                            if line_start + i < chars.len() && chars[line_start + i] == ' ' {
+                                spaces_to_remove += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        if spaces_to_remove > 0 {
+                            let mut new_chars = chars;
+                            new_chars.drain(line_start..line_start + spaces_to_remove);
+                            self.content_buffer = new_chars.into_iter().collect();
+                            let new_cursor = if cursor_idx >= line_start + spaces_to_remove {
+                                cursor_idx - spaces_to_remove
+                            } else {
+                                line_start
+                            };
+                            let ccursor = egui::text::CCursor::new(new_cursor);
+                            text_state.cursor.set_char_range(Some(egui::text::CCursorRange::two(ccursor, ccursor)));
+                        }
+                    }
+                } else {
+                    // Selection - block indent/unindent
+                    let start_idx = range.primary.index.min(range.secondary.index);
+                    let end_idx = range.primary.index.max(range.secondary.index);
+                    let chars: Vec<char> = self.content_buffer.chars().collect();
+                    
+                    let mut first_line_start = 0;
+                    for i in (0..start_idx.min(chars.len())).rev() {
+                        if chars[i] == '\n' {
+                            first_line_start = i + 1;
+                            break;
+                        }
+                    }
+                    
+                    let mut selected_line_starts = vec![first_line_start];
+                    for i in first_line_start..end_idx.min(chars.len()) {
+                        if chars[i] == '\n' && i + 1 < end_idx {
+                            selected_line_starts.push(i + 1);
+                        }
+                    }
+                    
+                    if tab_pressed {
+                        let mut new_chars = chars;
+                        let mut added_chars = 0;
+                        for &line_start in selected_line_starts.iter().rev() {
+                            for c in spaces.chars().rev() {
+                                new_chars.insert(line_start, c);
+                            }
+                            added_chars += tab_width;
+                        }
+                        self.content_buffer = new_chars.into_iter().collect();
+                        let new_start = start_idx + tab_width;
+                        let new_end = end_idx + added_chars;
+                        let (anchor, head) = if range.primary.index >= range.secondary.index {
+                            (new_start, new_end)
+                        } else {
+                            (new_end, new_start)
+                        };
+                        let c_anchor = egui::text::CCursor::new(anchor);
+                        let c_head = egui::text::CCursor::new(head);
+                        text_state.cursor.set_char_range(Some(egui::text::CCursorRange::two(c_anchor, c_head)));
+                    } else {
+                        // Shift + Tab block unindent
+                        let mut new_chars = chars;
+                        let mut removed_chars = 0;
+                        let mut first_line_removed = 0;
+                        for &line_start in selected_line_starts.iter().rev() {
+                            let mut spaces_to_remove = 0;
+                            for i in 0..tab_width {
+                                if line_start + i < new_chars.len() && new_chars[line_start + i] == ' ' {
+                                    spaces_to_remove += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if spaces_to_remove > 0 {
+                                new_chars.drain(line_start..line_start + spaces_to_remove);
+                                removed_chars += spaces_to_remove;
+                                if line_start == first_line_start {
+                                    first_line_removed = spaces_to_remove;
+                                }
+                            }
+                        }
+                        self.content_buffer = new_chars.into_iter().collect();
+                        let new_start = (start_idx as isize - first_line_removed as isize).max(first_line_start as isize) as usize;
+                        let new_end = (end_idx as isize - removed_chars as isize).max(new_start as isize) as usize;
+                        let (anchor, head) = if range.primary.index >= range.secondary.index {
+                            (new_start, new_end)
+                        } else {
+                            (new_end, new_start)
+                        };
+                        let c_anchor = egui::text::CCursor::new(anchor);
+                        let c_head = egui::text::CCursor::new(head);
+                        text_state.cursor.set_char_range(Some(egui::text::CCursorRange::two(c_anchor, c_head)));
+                    }
+                }
+                text_state.store(ui.ctx(), editor_id);
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -955,7 +1101,26 @@ impl EditorRenderer {
         font_size: f32,
         line_numbers: bool,
         cursor_style: crate::config::CursorStyle,
+        tab_width: usize,
     ) {
+        let editor_id = get_editor_id(editor);
+        let had_focus = ui.memory(|mem| mem.has_focus(editor_id));
+        
+        let mut tab_pressed = false;
+        let mut shift_tab_pressed = false;
+        if had_focus {
+            ui.input_mut(|i| {
+                if i.key_pressed(egui::Key::Tab) && !i.modifiers.command {
+                    if i.modifiers.shift {
+                        shift_tab_pressed = true;
+                        i.consume_key(egui::Modifiers::SHIFT, egui::Key::Tab);
+                    } else {
+                        tab_pressed = true;
+                        i.consume_key(egui::Modifiers::NONE, egui::Key::Tab);
+                    }
+                }
+            });
+        }
         let mut previous_selection = None;
         if let Some(text_state) =
             egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
@@ -1042,6 +1207,7 @@ impl EditorRenderer {
                                             .font(FontId::monospace(font_size))
                                             .frame(false)
                                             .layouter(&mut layouter)
+                                            .code_editor()
                                             .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
                                     let edit_res = edit_output.response.clone();
@@ -1096,12 +1262,16 @@ impl EditorRenderer {
                                         }
                                     }
 
-                                    let text_changed = self.process_autoclosing(
+                                    let mut text_changed = self.process_autoclosing(
                                         ui.ctx(),
                                         edit_res.id,
                                         edit_output.state,
                                         edit_res.changed(),
                                     );
+                                    let tab_changed = self.handle_tab_key(ui, editor_id, tab_pressed, shift_tab_pressed, tab_width);
+                                    if tab_changed {
+                                        text_changed = true;
+                                    }
 
                                     (gutter_rect, edit_res, text_changed)
                                 })
@@ -1171,6 +1341,7 @@ impl EditorRenderer {
                                 .font(FontId::monospace(font_size))
                                 .frame(false)
                                 .layouter(&mut layouter)
+                                .code_editor()
                                 .desired_width(f32::INFINITY);
                             let edit_output = text_edit.show(ui);
                             let edit_res = edit_output.response.clone();
@@ -1220,12 +1391,16 @@ impl EditorRenderer {
                                 }
                             }
 
-                            let text_changed = self.process_autoclosing(
+                            let mut text_changed = self.process_autoclosing(
                                 ui.ctx(),
                                 edit_res.id,
                                 edit_output.state,
                                 edit_res.changed(),
                             );
+                            let tab_changed = self.handle_tab_key(ui, editor_id, tab_pressed, shift_tab_pressed, tab_width);
+                            if tab_changed {
+                                text_changed = true;
+                            }
 
                             // Add bottom padding inside scroll viewport
                             ui.add_space(100.0);

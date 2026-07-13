@@ -24,13 +24,13 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 
 # Create dummy main.rs to cache cargo build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --profile release-optimized
 
 # Copy actual source code
 COPY src ./src
 
 # Build the release binary
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && cargo build --profile release-optimized
 
 # --- Stage 2: Create a minimal runtime image ---
 FROM debian:bookworm-slim
@@ -50,6 +50,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/target/release/dr-md /app/dr-md
+COPY --from=builder /app/target/release-optimized/dr-md /app/dr-md
 
 ENTRYPOINT ["/app/dr-md"]

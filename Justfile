@@ -4,9 +4,13 @@ default: build
 build:
     cargo build
 
-# Slow build (fully optimized release profile)
+# Fast release build non optimized
 release:
     cargo build --release
+
+# Slow build (fully optimized release profile)
+optimized:
+    cargo build --profile release-optimized
 
 # Fast check (syntax and type checking without code gen)
 check:
@@ -16,9 +20,12 @@ check:
 run:
     cargo run
 
-# Run in release mode
 run-release:
     cargo run --release
+
+# Run in release optimized mode
+run-optimized:
+    cargo run --profile release-optimized
 
 # Run tests
 test:
