@@ -34,6 +34,8 @@ pub struct AppState {
     pub insert_table_cols: usize,
     pub insert_table_rows: usize,
     pub insert_table_dialog_pos: Option<egui::Pos2>,
+    pub tab_scroll_accum: f32,
+    pub last_active_tab_index: Option<usize>,
 }
 
 impl AppState {
@@ -63,6 +65,8 @@ impl AppState {
             insert_table_cols: 3,
             insert_table_rows: 3,
             insert_table_dialog_pos: None,
+            tab_scroll_accum: 0.0,
+            last_active_tab_index: None,
         };
 
         if state.config.reopen_last_files {

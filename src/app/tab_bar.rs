@@ -1,11 +1,30 @@
 use crate::app::state::AppState;
 
 pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
+    let active_tab_changed = match (state.last_active_tab_index, state.active_tab_index) {
+        (Some(last), Some(current)) => {
+            if last != current {
+                state.last_active_tab_index = Some(current);
+                true
+            } else {
+                false
+            }
+        }
+        (None, Some(current)) => {
+            state.last_active_tab_index = Some(current);
+            false
+        }
+        _ => {
+            state.last_active_tab_index = state.active_tab_index;
+            false
+        }
+    };
+
     let tab_bar_frame = egui::Frame::none()
         .fill(ui.visuals().panel_fill)
         .inner_margin(egui::Margin::symmetric(8.0, 0.0));
 
-    tab_bar_frame.show(ui, |ui| {
+    let inner_res = tab_bar_frame.show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
 
@@ -165,6 +184,10 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                     egui::pos2(new_tab_rect.max.x, new_tab_rect.max.y),
                                 );
                                 ui.painter().rect_filled(bottom_line, 0.0, accent);
+
+                                if active_tab_changed {
+                                    ui.scroll_to_rect(new_tab_rect, None);
+                                }
                             }
 
                             let response = ui.interact(new_tab_rect, tab_id, egui::Sense::drag());
@@ -279,6 +302,49 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                 });
         });
     });
+
+    let scroll_delta = ui.input(|i| i.raw_scroll_delta);
+    if ui.rect_contains_pointer(inner_res.response.rect) && scroll_delta.y != 0.0 {
+        if (state.tab_scroll_accum > 0.0 && scroll_delta.y < 0.0) || (state.tab_scroll_accum < 0.0 && scroll_delta.y > 0.0) {
+            state.tab_scroll_accum = 0.0;
+        }
+
+        state.tab_scroll_accum += scroll_delta.y;
+
+        let threshold = 20.0;
+        let mut switched = false;
+        let mut new_active_idx = state.active_tab_index;
+
+        if let Some(active_idx) = state.active_tab_index {
+            let num_tabs = state.tabs.len();
+            if num_tabs > 1 {
+                if state.tab_scroll_accum >= threshold {
+                    if active_idx > 0 {
+                        new_active_idx = Some(active_idx - 1);
+                        switched = true;
+                    }
+                    state.tab_scroll_accum = 0.0;
+                } else if state.tab_scroll_accum <= -threshold {
+                    if active_idx + 1 < num_tabs {
+                        new_active_idx = Some(active_idx + 1);
+                        switched = true;
+                    }
+                    state.tab_scroll_accum = 0.0;
+                }
+            }
+        }
+
+        if switched {
+            if let Some(idx) = new_active_idx {
+                state.switch_tab(idx);
+            }
+        }
+    } else if state.tab_scroll_accum != 0.0 {
+        state.tab_scroll_accum *= 0.8;
+        if state.tab_scroll_accum.abs() < 1.0 {
+            state.tab_scroll_accum = 0.0;
+        }
+    }
 }
 
 fn truncate_filename(filename: &str, max_len: usize) -> String {
