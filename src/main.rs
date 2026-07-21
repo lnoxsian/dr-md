@@ -36,9 +36,9 @@ fn main() -> eframe::Result<()> {
 
     let app_config = config::AppConfig::load();
     let hw_accel = if app_config.gpu_acceleration {
-        eframe::HardwareAcceleration::Preferred
+        eframe::HardwareAcceleration::Required
     } else {
-        eframe::HardwareAcceleration::Off
+        eframe::HardwareAcceleration::Preferred
     };
 
     let options = eframe::NativeOptions {
