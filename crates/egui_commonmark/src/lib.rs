@@ -73,6 +73,7 @@ pub struct CommonMarkCache {
     scroll: HashMap<Id, ScrollableCache>,
     has_installed_loaders: bool,
     pub(crate) mermaid_cache: std::sync::Arc<std::sync::Mutex<HashMap<u64, crate::mermaid::MermaidCacheEntry>>>,
+    pub(crate) math_cache: HashMap<u64, Vec<u8>>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -88,6 +89,7 @@ impl Default for CommonMarkCache {
             scroll: Default::default(),
             has_installed_loaders: false,
             mermaid_cache: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
+            math_cache: HashMap::new(),
         }
     }
 }

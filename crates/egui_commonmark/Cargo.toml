@@ -38,6 +38,17 @@ features = [
     "document-features",
 ]
 
+
+[dependencies.ratex-parser]
+version = "0.1"
+
+[dependencies.ratex-layout]
+version = "0.1"
+
+[dependencies.ratex-svg]
+version = "0.1"
+features = ["standalone", "embed-fonts"]
+
 [dependencies.comrak]
 version = "0.20.0"
 optional = true

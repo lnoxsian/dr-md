@@ -9,6 +9,84 @@ use egui::{self, Id, Pos2, TextStyle, Ui, Vec2};
 
 use pulldown_cmark::{CowStr, HeadingLevel, Options};
 
+fn render_math_to_svg(latex: &str, font_size: f32, text_color: egui::Color32) -> Result<String, String> {
+    let formula = ratex_parser::parse(latex)
+        .map_err(|err| format!("RaTeX parse error: {:?}", err))?;
+    let layout_options = ratex_layout::LayoutOptions::default();
+    let layout_box = ratex_layout::layout(&formula, &layout_options);
+    let display_list = ratex_layout::to_display_list(&layout_box);
+    let options = ratex_svg::SvgOptions {
+        font_size: font_size as f64,
+        padding: (font_size * 0.15) as f64,
+        embed_glyphs: true,
+        ..Default::default()
+    };
+    let svg = ratex_svg::render_to_svg(&display_list, &options);
+    
+    // Replace default black color with the current theme text color to support dark mode
+    let color_str = format!(
+        "rgba({},{},{},{})",
+        text_color.r(),
+        text_color.g(),
+        text_color.b(),
+        text_color.a() as f32 / 255.0
+    );
+    let svg = svg.replace("rgba(0,0,0,1)", &color_str);
+    
+    Ok(svg)
+}
+
+fn encode_math_placeholders(s: &str) -> String {
+    s.chars().map(|c| match c {
+        '\\' => '\u{E000}',
+        '_' => '\u{E001}',
+        '*' => '\u{E002}',
+        '[' => '\u{E003}',
+        ']' => '\u{E004}',
+        '~' => '\u{E005}',
+        '`' => '\u{E006}',
+        _ => c,
+    }).collect()
+}
+
+fn decode_math_placeholders(s: &str) -> String {
+    s.chars().map(|c| match c {
+        '\u{E000}' => '\\',
+        '\u{E001}' => '_',
+        '\u{E002}' => '*',
+        '\u{E003}' => '[',
+        '\u{E004}' => ']',
+        '\u{E005}' => '~',
+        '\u{E006}' => '`',
+        _ => c,
+    }).collect()
+}
+
+fn preprocess_math_blocks(input: &str) -> String {
+    let segments = parse_math_segments(input);
+    let mut result = String::with_capacity(input.len());
+    for segment in segments {
+        match segment {
+            MathSegment::Text(t) => {
+                result.push_str(t);
+            }
+            MathSegment::InlineMath(m) => {
+                result.push('$');
+                result.push_str(&encode_math_placeholders(m));
+                result.push('$');
+            }
+            MathSegment::DisplayMath(m) => {
+                result.push('$');
+                result.push('$');
+                result.push_str(&encode_math_placeholders(m));
+                result.push('$');
+                result.push('$');
+            }
+        }
+    }
+    result
+}
+
 #[derive(Default, Debug)]
 pub struct ScrollableCache {
     available_size: Vec2,
@@ -213,6 +291,195 @@ pub(crate) struct CheckboxClickEvent {
     pub(crate) span: Range<usize>,
 }
 
+fn merge_math_events_to_cmark<'a>(
+    events: impl Iterator<Item = (pulldown_cmark::Event<'a>, Range<usize>)>
+) -> Vec<(pulldown_cmark::Event<'a>, Range<usize>)> {
+    let mut merged = Vec::new();
+    let mut iter = events.peekable();
+
+    while let Some((event, span)) = iter.next() {
+        match event {
+            pulldown_cmark::Event::Text(ref t) if t.starts_with("$$") => {
+                if t.len() >= 4 && t.ends_with("$$") {
+                    merged.push((pulldown_cmark::Event::Text(t.clone()), span));
+                } else {
+                    let mut math_content = t.to_string();
+                    let mut end_span = span.clone();
+                    let mut found_close = false;
+
+                    while let Some((next_ev, next_span)) = iter.peek() {
+                        match next_ev {
+                            pulldown_cmark::Event::Text(nt) => {
+                                math_content.push_str(nt);
+                                if nt.ends_with("$$") {
+                                    end_span = next_span.clone();
+                                    found_close = true;
+                                    iter.next();
+                                    break;
+                                }
+                            }
+                            pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
+                                math_content.push('\n');
+                            }
+                            _ => {}
+                        }
+                        end_span = next_span.clone();
+                        iter.next();
+                    }
+
+                    if found_close {
+                        merged.push((
+                            pulldown_cmark::Event::Text(math_content.into()),
+                            span.start..end_span.end,
+                        ));
+                    } else {
+                        merged.push((pulldown_cmark::Event::Text(t.clone()), span));
+                    }
+                }
+            }
+            pulldown_cmark::Event::Text(ref t) if t.starts_with('$') => {
+                if t.len() >= 2 && t.ends_with('$') && !t.starts_with("$$") {
+                    merged.push((pulldown_cmark::Event::Text(t.clone()), span));
+                } else if t.len() > 1 && !t.chars().nth(1).unwrap().is_whitespace() {
+                    let mut math_content = t.to_string();
+                    let mut end_span = span.clone();
+                    let mut found_close = false;
+
+                    while let Some((next_ev, next_span)) = iter.peek() {
+                        match next_ev {
+                            pulldown_cmark::Event::Text(nt) => {
+                                math_content.push_str(nt);
+                                if nt.ends_with('$') {
+                                    end_span = next_span.clone();
+                                    found_close = true;
+                                    iter.next();
+                                    break;
+                                }
+                            }
+                            pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
+                                math_content.push(' ');
+                            }
+                            _ => {}
+                        }
+                        end_span = next_span.clone();
+                        iter.next();
+                    }
+
+                    if found_close {
+                        merged.push((
+                            pulldown_cmark::Event::Text(math_content.into()),
+                            span.start..end_span.end,
+                        ));
+                    } else {
+                        merged.push((pulldown_cmark::Event::Text(t.clone()), span));
+                    }
+                } else {
+                    merged.push((pulldown_cmark::Event::Text(t.clone()), span));
+                }
+            }
+            _ => {
+                merged.push((event, span));
+            }
+        }
+    }
+
+    merged
+}
+
+enum MathSegment<'a> {
+    Text(&'a str),
+    InlineMath(&'a str),
+    DisplayMath(&'a str),
+}
+
+fn parse_math_segments(input: &str) -> Vec<MathSegment<'_>> {
+    let mut segments = Vec::new();
+    let mut start = 0;
+    let mut pos = 0;
+    let chars: Vec<char> = input.chars().collect();
+    let len = chars.len();
+
+    while pos < len {
+        if pos + 1 < len && chars[pos] == '$' && chars[pos + 1] == '$' {
+            if pos > start {
+                segments.push(MathSegment::Text(&input[get_char_range(input, start, pos)]));
+            }
+            let block_start = pos;
+            pos += 2;
+            let mut found_close = false;
+            while pos + 1 < len {
+                if chars[pos] == '$' && chars[pos + 1] == '$' {
+                    found_close = true;
+                    break;
+                }
+                pos += 1;
+            }
+            if found_close {
+                let math_content = &input[get_char_range(input, block_start + 2, pos)];
+                segments.push(MathSegment::DisplayMath(math_content));
+                pos += 2;
+                start = pos;
+            } else {
+                pos = block_start + 1;
+                start = block_start;
+            }
+        } else if chars[pos] == '$' {
+            if pos + 1 < len && !chars[pos + 1].is_whitespace() {
+                if pos > start {
+                    segments.push(MathSegment::Text(&input[get_char_range(input, start, pos)]));
+                }
+                let math_start = pos;
+                pos += 1;
+                let mut found_close = false;
+                while pos < len {
+                    if chars[pos] == '$' && pos > 0 && !chars[pos - 1].is_whitespace() {
+                        found_close = true;
+                        break;
+                    }
+                    pos += 1;
+                }
+                if found_close {
+                    let math_content = &input[get_char_range(input, math_start + 1, pos)];
+                    segments.push(MathSegment::InlineMath(math_content));
+                    pos += 1;
+                    start = pos;
+                } else {
+                    pos = math_start + 1;
+                    start = math_start;
+                }
+            } else {
+                pos += 1;
+            }
+        } else {
+            pos += 1;
+        }
+    }
+
+    if start < len {
+        segments.push(MathSegment::Text(&input[get_char_range(input, start, len)]));
+    }
+
+    segments
+}
+
+fn get_char_range(s: &str, char_start: usize, char_end: usize) -> std::ops::Range<usize> {
+    let mut byte_start = 0;
+    let mut byte_end = 0;
+    for (i, (byte_idx, _)) in s.char_indices().enumerate() {
+        if i == char_start {
+            byte_start = byte_idx;
+        }
+        if i == char_end {
+            byte_end = byte_idx;
+            break;
+        }
+    }
+    if char_end >= s.chars().count() {
+        byte_end = s.len();
+    }
+    byte_start..byte_end
+}
+
 impl CommonMarkViewerInternal {
     pub fn new(source_id: Id) -> Self {
         Self {
@@ -250,9 +517,11 @@ impl CommonMarkViewerInternal {
             let height = ui.text_style_height(&TextStyle::Body);
             ui.set_row_height(height);
 
-            let mut events = pulldown_cmark::Parser::new_ext(text, parser_options())
-                .into_offset_iter()
-                .enumerate();
+            let preprocessed_text = preprocess_math_blocks(text);
+            let raw_events = pulldown_cmark::Parser::new_ext(&preprocessed_text, parser_options())
+                .into_offset_iter();
+            let merged_events = merge_math_events_to_cmark(raw_events);
+            let mut events = merged_events.into_iter().enumerate();
 
             while let Some((index, (e, src_span))) = events.next() {
                 let start_position = ui.next_widget_position();
@@ -305,9 +574,10 @@ impl CommonMarkViewerInternal {
             return;
         };
 
-        let events = pulldown_cmark::Parser::new_ext(text, parser_options())
-            .into_offset_iter()
-            .collect::<Vec<_>>();
+        let preprocessed_text = preprocess_math_blocks(text);
+        let raw_events = pulldown_cmark::Parser::new_ext(&preprocessed_text, parser_options())
+            .into_offset_iter();
+        let events = merge_math_events_to_cmark(raw_events);
 
         let num_rows = events.len();
 
@@ -541,11 +811,11 @@ impl CommonMarkViewerInternal {
             pulldown_cmark::Event::Start(tag) => self.start_tag(ui, tag, options),
             pulldown_cmark::Event::End(tag) => self.end_tag(ui, tag, cache, options, max_width),
             pulldown_cmark::Event::Text(text) => {
-                self.event_text(text, ui);
+                self.event_text(text, ui, cache);
             }
             pulldown_cmark::Event::Code(text) => {
                 self.text_style.code = true;
-                self.event_text(text, ui);
+                self.event_text(text, ui, cache);
                 self.text_style.code = false;
             }
             pulldown_cmark::Event::InlineHtml(_) => {}
@@ -581,16 +851,113 @@ impl CommonMarkViewerInternal {
         }
     }
 
-    fn event_text(&mut self, text: CowStr, ui: &mut Ui) {
-        let rich_text = self.text_style.to_richtext(ui, &text);
-        if let Some(image) = &mut self.image {
-            image.alt_text.push(rich_text);
-        } else if let Some(block) = &mut self.fenced_code_block {
-            block.content.push_str(&text);
-        } else if let Some(link) = &mut self.link {
-            link.text.push(rich_text);
-        } else {
-            ui.label(rich_text);
+    fn event_text(&mut self, text: CowStr, ui: &mut Ui, cache: &mut CommonMarkCache) {
+        if self.fenced_code_block.is_some() || self.image.is_some() {
+            let rich_text = self.text_style.to_richtext(ui, &text);
+            if let Some(image) = &mut self.image {
+                image.alt_text.push(rich_text);
+            } else if let Some(block) = &mut self.fenced_code_block {
+                block.content.push_str(&text);
+            }
+            return;
+        }
+
+        let segments = parse_math_segments(&text);
+        for segment in segments {
+            match segment {
+                MathSegment::Text(t) => {
+                    let rich_text = self.text_style.to_richtext(ui, t);
+                    if let Some(link) = &mut self.link {
+                        link.text.push(rich_text);
+                    } else {
+                        ui.label(rich_text);
+                    }
+                }
+                MathSegment::InlineMath(m) => {
+                    let decoded_m = decode_math_placeholders(m);
+                    let font_size = ui.style().text_styles.get(&egui::TextStyle::Body).map_or(14.0, |d| d.size);
+                    let text_color = ui.visuals().text_color();
+                    
+                    // Create a unique hash for the LaTeX content, font size, and text color
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    use std::hash::Hash;
+                    use std::hash::Hasher;
+                    decoded_m.hash(&mut hasher);
+                    (font_size as u32).hash(&mut hasher);
+                    text_color.hash(&mut hasher);
+                    let hash = hasher.finish();
+                    
+                    let uri = format!("bytes://math_{}.svg", hash);
+                    
+                    // Get or compile SVG bytes
+                    let bytes = cache.math_cache.entry(hash).or_insert_with(|| {
+                        match render_math_to_svg(&decoded_m, font_size, text_color) {
+                            Ok(svg_string) => svg_string.into_bytes(),
+                            Err(_) => Vec::new(),
+                        }
+                    });
+                    
+                    if !bytes.is_empty() {
+                        let image = egui::Image::from_bytes(uri, bytes.clone())
+                            .fit_to_original_size(1.0);
+                        ui.add(image);
+                    } else {
+                        // Fallback to plain text on error
+                        let rich_text = self.text_style.to_richtext(ui, &decoded_m);
+                        if let Some(link) = &mut self.link {
+                            link.text.push(rich_text);
+                        } else {
+                            ui.label(rich_text);
+                        }
+                    }
+                }
+                MathSegment::DisplayMath(m) => {
+                    let decoded_m = decode_math_placeholders(m);
+                    let font_size = ui.style().text_styles.get(&egui::TextStyle::Body).map_or(14.0, |d| d.size) * 1.2;
+                    let text_color = ui.visuals().text_color();
+                    
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    use std::hash::Hash;
+                    use std::hash::Hasher;
+                    decoded_m.hash(&mut hasher);
+                    (font_size as u32).hash(&mut hasher);
+                    text_color.hash(&mut hasher);
+                    let hash = hasher.finish();
+                    
+                    let uri = format!("bytes://math_{}.svg", hash);
+                    
+                    let bytes = cache.math_cache.entry(hash).or_insert_with(|| {
+                        match render_math_to_svg(&decoded_m, font_size, text_color) {
+                            Ok(svg_string) => svg_string.into_bytes(),
+                            Err(_) => Vec::new(),
+                        }
+                    });
+                    
+                    if !bytes.is_empty() {
+                        if self.should_insert_newline {
+                            newline(ui);
+                        }
+                        ui.horizontal(|ui| {
+                            ui.label("    ");
+                            let image = egui::Image::from_bytes(uri, bytes.clone())
+                                .fit_to_original_size(1.0);
+                            ui.add(image);
+                        });
+                        newline(ui);
+                    } else {
+                        // Fallback to plain text on error
+                        if self.should_insert_newline {
+                            newline(ui);
+                        }
+                        ui.horizontal(|ui| {
+                            ui.label("    ");
+                            let rich_text = self.text_style.to_richtext(ui, &decoded_m).monospace();
+                            ui.label(rich_text);
+                        });
+                        newline(ui);
+                    }
+                }
+            }
         }
     }
 
@@ -720,12 +1087,12 @@ impl CommonMarkViewerInternal {
             pulldown_cmark::TagEnd::Strikethrough => {
                 self.text_style.strikethrough = false;
             }
-            pulldown_cmark::TagEnd::Link { .. } => {
+            pulldown_cmark::TagEnd::Link => {
                 if let Some(link) = self.link.take() {
                     link.end(ui, cache);
                 }
             }
-            pulldown_cmark::TagEnd::Image { .. } => {
+            pulldown_cmark::TagEnd::Image => {
                 if let Some(image) = self.image.take() {
                     image.end(ui, options);
                 }
@@ -747,6 +1114,151 @@ impl CommonMarkViewerInternal {
             self.text_style.code = false;
             if self.should_insert_newline {
                 newline(ui);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_math_segments() {
+        let segments = parse_math_segments("Hello $x^2$ world $$y = mx + b$$ end");
+        assert_eq!(segments.len(), 5);
+        
+        match &segments[0] {
+            MathSegment::Text(t) => assert_eq!(*t, "Hello "),
+            _ => panic!("Expected text"),
+        }
+        match &segments[1] {
+            MathSegment::InlineMath(m) => assert_eq!(*m, "x^2"),
+            _ => panic!("Expected inline math"),
+        }
+        match &segments[2] {
+            MathSegment::Text(t) => assert_eq!(*t, " world "),
+            _ => panic!("Expected text"),
+        }
+        match &segments[3] {
+            MathSegment::DisplayMath(m) => assert_eq!(*m, "y = mx + b"),
+            _ => panic!("Expected display math"),
+        }
+        match &segments[4] {
+            MathSegment::Text(t) => assert_eq!(*t, " end"),
+            _ => panic!("Expected text"),
+        }
+    }
+
+
+
+    #[test]
+    fn test_benchmark_events() {
+        let input = r"
+# Display Math
+
+$$
+E = mc^2
+$$
+
+---
+
+$$
+f(x)=x^2+2x+1
+$$
+";
+        let parser = pulldown_cmark::Parser::new_ext(input, pulldown_cmark::Options::all())
+            .into_offset_iter();
+        let merged = merge_math_events_to_cmark(parser);
+        for (event, _) in merged {
+            println!("Merged Event: {:?}", event);
+        }
+    }
+
+    #[test]
+    fn test_ratex_compilation() {
+        let latex = r"E = mc^2";
+        let svg = render_math_to_svg(latex, 14.0, egui::Color32::BLACK).unwrap();
+        assert!(svg.contains("<svg"));
+        assert!(svg.contains("<path"));
+    }
+
+    #[test]
+    fn test_matrix_rendering() {
+        let latex = r"\begin{matrix} 1 & 2 \\ 3 & 4 \end{matrix}";
+        let svg = render_math_to_svg(latex, 14.0, egui::Color32::BLACK).unwrap();
+        println!("Matrix SVG:\n{}", svg);
+    }
+
+    #[test]
+    fn test_multiline_equation_rendering() {
+        let latex = "a = b \\\\\nc = d";
+        let svg = render_math_to_svg(latex, 14.0, egui::Color32::BLACK).unwrap();
+        println!("Multiline SVG:\n{}", svg);
+    }
+
+    #[test]
+    fn test_pipeline_matrix_rendering() {
+        let input = "$$\n\\begin{matrix}\n1 & 2 \\\\\n3 & 4\n\\end{matrix}\n$$";
+        let preprocessed = preprocess_math_blocks(input);
+        let parser = pulldown_cmark::Parser::new_ext(&preprocessed, pulldown_cmark::Options::all())
+            .into_offset_iter();
+        let merged = merge_math_events_to_cmark(parser);
+        for (event, _) in merged {
+            if let pulldown_cmark::Event::Text(t) = event {
+                println!("Text Event: {:?}", t);
+                let segments = parse_math_segments(&t);
+                for seg in segments {
+                    match seg {
+                        MathSegment::DisplayMath(m) => {
+                            let decoded_m = decode_math_placeholders(m);
+                            println!("Display Math: {:?}", decoded_m);
+                            let svg = render_math_to_svg(&decoded_m, 14.0, egui::Color32::BLACK).unwrap();
+                            println!("SVG:\n{}", svg);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_preprocess_math_blocks() {
+        let input = "This costs $5 and that costs $10. But here is inline math: $x \\approx 2$.";
+        let preprocessed = preprocess_math_blocks(input);
+        assert_eq!(
+            preprocessed,
+            "This costs $5 and that costs $10. But here is inline math: $x \u{E000}approx 2$."
+        );
+    }
+
+    #[test]
+    fn test_pipeline_limit_rendering() {
+        let input = r"Limit: $\lim_{x\to0}\frac{\sin x}{x}=1$";
+        let preprocessed = preprocess_math_blocks(input);
+        println!("Preprocessed: {:?}", preprocessed);
+        let parser = pulldown_cmark::Parser::new_ext(&preprocessed, pulldown_cmark::Options::all())
+            .into_offset_iter();
+        let merged = merge_math_events_to_cmark(parser);
+        for (event, _) in merged {
+            if let pulldown_cmark::Event::Text(t) = event {
+                println!("Text Event: {:?}", t);
+                let segments = parse_math_segments(&t);
+                for seg in segments {
+                    match seg {
+                        MathSegment::InlineMath(m) => {
+                            let decoded_m = decode_math_placeholders(m);
+                            println!("Inline Math: {:?}", decoded_m);
+                            let svg = render_math_to_svg(&decoded_m, 14.0, egui::Color32::BLACK);
+                            println!("SVG Result: {:?}", svg.is_ok());
+                            if let Err(e) = svg {
+                                println!("SVG Error: {}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
     }

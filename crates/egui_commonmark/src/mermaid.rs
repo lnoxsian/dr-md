@@ -81,9 +81,11 @@ fn get_sans_serif_family() -> String {
 
 pub fn render_svg_to_png(svg_data: &str) -> Option<Vec<u8>> {
     let fontdb = get_font_db();
-    let mut opt = usvg::Options::default();
-    opt.fontdb = fontdb;
-    opt.font_family = get_sans_serif_family();
+    let opt = usvg::Options {
+        fontdb,
+        font_family: get_sans_serif_family(),
+        ..Default::default()
+    };
 
     let tree = usvg::Tree::from_str(svg_data, &opt).ok()?;
     let pixmap_size = tree.size().to_int_size();
