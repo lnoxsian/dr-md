@@ -185,7 +185,7 @@ impl FileTree {
             let fill_color = ui.visuals().selection.bg_fill.linear_multiply(0.15);
             let stroke_color = ui.visuals().selection.bg_fill;
             ui.painter()
-                .rect(rect, 0.0, fill_color, egui::Stroke::new(1.0, stroke_color));
+                .rect(rect, 0.0, fill_color, egui::Stroke::new(1.0_f32, stroke_color));
             ui.ctx().request_repaint();
         }
 
@@ -318,7 +318,7 @@ impl FileTree {
                 egui::TextFormat {
                     font_id: egui::TextStyle::Body.resolve(ui.style()),
                     color: text_color,
-                    underline: egui::Stroke::new(1.0, accent_color),
+                    underline: egui::Stroke::new(1.0_f32, accent_color),
                     ..Default::default()
                 },
             );

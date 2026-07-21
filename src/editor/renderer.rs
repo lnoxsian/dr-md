@@ -1751,7 +1751,7 @@ fn create_layout_job(
                         TextFormat {
                             font_id: normal_font.clone(),
                             color: link_color,
-                            underline: egui::Stroke::new(1.0, link_color),
+                            underline: egui::Stroke::new(1.0_f32, link_color),
                             ..Default::default()
                         },
                     );
@@ -1786,7 +1786,7 @@ fn create_layout_job(
                                 TextFormat {
                                     font_id: normal_font.clone(),
                                     color: link_color,
-                                    underline: egui::Stroke::new(1.0, link_color),
+                                    underline: egui::Stroke::new(1.0_f32, link_color),
                                     ..Default::default()
                                 },
                             );

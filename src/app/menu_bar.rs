@@ -413,14 +413,14 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 painter.rect_stroke(
                                     rect.expand(2.0),
                                     egui::Rounding::same(10.0),
-                                    egui::Stroke::new(2.0, ui.visuals().text_color()),
+                                    egui::Stroke::new(2.0_f32, ui.visuals().text_color()),
                                 );
                             } else if response.hovered() {
                                 painter.rect_stroke(
                                     rect.expand(1.0),
                                     egui::Rounding::same(9.0),
                                     egui::Stroke::new(
-                                        1.0,
+                                        1.0_f32,
                                         ui.visuals().text_color().linear_multiply(0.5),
                                     ),
                                 );
@@ -462,18 +462,18 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 painter.rect_stroke(
                                     rect.expand(2.0),
                                     egui::Rounding::same(10.0),
-                                    egui::Stroke::new(2.0, ui.visuals().text_color()),
+                                    egui::Stroke::new(2.0_f32, ui.visuals().text_color()),
                                 );
                             } else if response.hovered() {
                                 painter.rect_stroke(
                                     rect.expand(1.0),
                                     egui::Rounding::same(9.0),
                                     egui::Stroke::new(
-                                        1.0,
+                                        1.0_f32,
                                         ui.visuals().text_color().linear_multiply(0.5),
-                                    ),
-                                );
-                            }
+                                     ),
+                                 );
+                             }
 
                             if response.clicked() {
                                 state.config.theme_accent = *accent;

@@ -202,32 +202,32 @@ fn solarized_dark_visuals() -> egui::Visuals {
     visuals.extreme_bg_color = bg_main;
     visuals.faint_bg_color = bg_alt;
     visuals.code_bg_color = bg_alt;
-    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.window_stroke = egui::Stroke::new(1.0_f32, fg_muted);
 
     visuals.widgets.noninteractive.bg_fill = bg_alt;
     visuals.widgets.noninteractive.weak_bg_fill = bg_main;
-    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(20, 81, 98);
     visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(20, 81, 98);
-    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(10, 64, 79);
     visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(10, 64, 79);
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_bright);
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
 
     visuals.widgets.active.bg_fill = egui::Color32::from_rgb(12, 74, 91);
     visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(12, 74, 91);
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_bright);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
 
     visuals.widgets.open.bg_fill = bg_alt;
     visuals.widgets.open.weak_bg_fill = bg_alt;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals
 }
@@ -246,32 +246,32 @@ fn solarized_light_visuals() -> egui::Visuals {
     visuals.extreme_bg_color = bg_main;
     visuals.faint_bg_color = bg_alt;
     visuals.code_bg_color = bg_alt;
-    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.window_stroke = egui::Stroke::new(1.0_f32, fg_muted);
 
     visuals.widgets.noninteractive.bg_fill = bg_alt;
     visuals.widgets.noninteractive.weak_bg_fill = bg_main;
-    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(220, 214, 190);
     visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(220, 214, 190);
-    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(224, 217, 197);
     visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(224, 217, 197);
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_dark);
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
 
     visuals.widgets.active.bg_fill = egui::Color32::from_rgb(213, 206, 185);
     visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(213, 206, 185);
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_dark);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
 
     visuals.widgets.open.bg_fill = bg_alt;
     visuals.widgets.open.weak_bg_fill = bg_alt;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals
 }
@@ -291,32 +291,32 @@ fn gruvbox_dark_visuals() -> egui::Visuals {
     visuals.extreme_bg_color = bg_dark;
     visuals.faint_bg_color = bg_alt;
     visuals.code_bg_color = bg_alt;
-    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.window_stroke = egui::Stroke::new(1.0_f32, fg_muted);
 
     visuals.widgets.noninteractive.bg_fill = bg_alt;
     visuals.widgets.noninteractive.weak_bg_fill = bg_main;
-    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(80, 73, 69);
     visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(80, 73, 69);
-    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(80, 73, 69);
     visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(80, 73, 69);
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_bright);
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
 
     visuals.widgets.active.bg_fill = egui::Color32::from_rgb(102, 92, 84);
     visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(102, 92, 84);
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_bright);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_bright);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, fg_bright);
 
     visuals.widgets.open.bg_fill = bg_alt;
     visuals.widgets.open.weak_bg_fill = bg_alt;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals
 }
@@ -336,32 +336,32 @@ fn gruvbox_light_visuals() -> egui::Visuals {
     visuals.extreme_bg_color = bg_light;
     visuals.faint_bg_color = bg_alt;
     visuals.code_bg_color = bg_alt;
-    visuals.window_stroke = egui::Stroke::new(1.0, fg_muted);
+    visuals.window_stroke = egui::Stroke::new(1.0_f32, fg_muted);
 
     visuals.widgets.noninteractive.bg_fill = bg_alt;
     visuals.widgets.noninteractive.weak_bg_fill = bg_main;
-    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(213, 196, 161);
     visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(213, 196, 161);
-    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(213, 196, 161);
     visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(213, 196, 161);
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, fg_dark);
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
 
     visuals.widgets.active.bg_fill = egui::Color32::from_rgb(189, 174, 147);
     visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(189, 174, 147);
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, fg_dark);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, fg_dark);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, fg_dark);
 
     visuals.widgets.open.bg_fill = bg_alt;
     visuals.widgets.open.weak_bg_fill = bg_alt;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, fg_muted);
-    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, fg_main);
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, fg_muted);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0_f32, fg_main);
 
     visuals
 }
@@ -424,8 +424,8 @@ pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     }
 
     // Set active/hovered widget border accents to make the UI pop
-    style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent_color);
-    style.visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent_color);
+    style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, accent_color);
+    style.visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, accent_color);
 
     // Apply uniform font sizes to all text styles (body, button, heading, monospace, small)
     let font_size = config.font_size;
