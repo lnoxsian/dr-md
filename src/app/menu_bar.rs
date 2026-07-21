@@ -507,6 +507,13 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                     {
                         let _ = state.config.save();
                     }
+                    if ui
+                        .checkbox(&mut state.config.gpu_acceleration, "GPU Hardware Acceleration")
+                        .on_hover_text("Enable GPU hardware acceleration or disable to fallback to CPU software rendering (requires app restart)")
+                        .changed()
+                    {
+                        let _ = state.config.save();
+                    }
                     ui.separator();
                     ui.label("Cursor Style:");
                     let mut cursor_style = state.config.cursor_style;

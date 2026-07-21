@@ -34,8 +34,17 @@ fn main() -> eframe::Result<()> {
         viewport = viewport.with_icon(icon_data);
     }
 
+    let app_config = config::AppConfig::load();
+    let hw_accel = if app_config.gpu_acceleration {
+        eframe::HardwareAcceleration::Preferred
+    } else {
+        eframe::HardwareAcceleration::Off
+    };
+
     let options = eframe::NativeOptions {
         viewport,
+        hardware_acceleration: hw_accel,
+        renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
 

@@ -5,6 +5,7 @@ use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 pub struct MarkdownPreview {
     pub cache: CommonMarkCache,
     pub cached_content: String,
+    pub processed_content: String,
     pub last_version: usize,
     pub last_path: Option<std::path::PathBuf>,
     pub last_content_height: f32,
@@ -18,6 +19,7 @@ impl MarkdownPreview {
         Self {
             cache: CommonMarkCache::default(),
             cached_content: String::new(),
+            processed_content: String::new(),
             last_version: usize::MAX,
             last_path: None,
             last_content_height: 0.0,
@@ -45,11 +47,12 @@ impl MarkdownPreview {
         let path_changed = self.last_path.as_deref() != Some(tab_path);
         if path_changed || editor.version != self.last_version {
             self.cached_content = editor.buffer.to_string();
+            self.processed_content = super::parser::preprocess_wiki_links(&self.cached_content);
             self.last_version = editor.version;
             self.last_path = Some(tab_path.to_path_buf());
         }
 
-        let mut processed = super::parser::preprocess_wiki_links(&self.cached_content);
+        let mut processed = self.processed_content.clone();
         let processed_old = processed.clone();
 
         let cursor_idx = editor.cursor.char_idx;
@@ -242,6 +245,7 @@ impl MarkdownPreview {
                     }
                 }
                 self.cached_content = orig_lines.join("\n");
+                self.processed_content = super::parser::preprocess_wiki_links(&self.cached_content);
                 editor.set_text(&self.cached_content);
                 self.last_version = editor.version;
             }

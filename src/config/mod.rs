@@ -152,6 +152,7 @@ pub struct AppConfig {
     pub cursor_style: CursorStyle,
     pub reopen_last_files: bool,
     pub mirror_mode: bool,
+    pub gpu_acceleration: bool,
 }
 
 impl Default for AppConfig {
@@ -167,6 +168,7 @@ impl Default for AppConfig {
             cursor_style: CursorStyle::default(),
             reopen_last_files: true,
             mirror_mode: false,
+            gpu_acceleration: true,
         }
     }
 }

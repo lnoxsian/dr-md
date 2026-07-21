@@ -20,6 +20,7 @@ pub struct EditorRenderer {
     pub use_regex: bool,
     pub case_sensitive: bool,
     pub matches: Vec<std::ops::Range<usize>>,
+    pub byte_matches: Vec<std::ops::Range<usize>>,
     pub active_match_index: Option<usize>,
     pub focus_search_input: bool,
     pub scroll_to_cursor_requested: bool,
@@ -39,6 +40,7 @@ impl EditorRenderer {
             use_regex: false,
             case_sensitive: false,
             matches: Vec::new(),
+            byte_matches: Vec::new(),
             active_match_index: None,
             focus_search_input: false,
             scroll_to_cursor_requested: false,
@@ -81,6 +83,7 @@ impl EditorRenderer {
 
     pub fn update_find_matches(&mut self) {
         self.matches.clear();
+        self.byte_matches.clear();
         if self.find_query.is_empty() {
             self.active_match_index = None;
             return;
@@ -113,6 +116,7 @@ impl EditorRenderer {
                         let c_start = byte_to_char.get(m.start()).cloned().unwrap_or(char_idx);
                         let c_end = byte_to_char.get(m.end()).cloned().unwrap_or(char_idx);
                         self.matches.push(c_start..c_end);
+                        self.byte_matches.push(m.start()..m.end());
                     }
                 }
             }
@@ -142,6 +146,7 @@ impl EditorRenderer {
                     .cloned()
                     .unwrap_or(char_idx);
                 self.matches.push(c_start..c_end);
+                self.byte_matches.push(actual_start_byte..actual_end_byte);
                 start_byte = actual_end_byte;
             }
         }
@@ -1125,7 +1130,7 @@ impl EditorRenderer {
         self.show_find_panel(ui, editor, true);
 
         let find_visible = self.find_visible;
-        let matches = self.matches.clone();
+        let byte_matches = self.byte_matches.clone();
         let active_match_idx = self.active_match_index;
 
         if line_numbers {
@@ -1157,9 +1162,7 @@ impl EditorRenderer {
                                         link_color,
                                     );
                                     job.wrap.max_width = wrap_width.min(text_wrap_width);
-                                    if find_visible && !matches.is_empty() {
-                                        let byte_matches =
-                                            char_ranges_to_byte_ranges(text, &matches);
+                                    if find_visible && !byte_matches.is_empty() {
                                         highlight_matches(
                                             &mut job,
                                             &byte_matches,
@@ -1314,8 +1317,7 @@ impl EditorRenderer {
                                 let mut job =
                                     create_layout_job(text, font_size, default_color, link_color);
                                 job.wrap.max_width = wrap_width.min(text_wrap_width);
-                                if find_visible && !matches.is_empty() {
-                                    let byte_matches = char_ranges_to_byte_ranges(text, &matches);
+                                if find_visible && !byte_matches.is_empty() {
                                     highlight_matches(&mut job, &byte_matches, active_match_idx);
                                 }
                                 ui.fonts(|f| f.layout_job(job))
@@ -1799,25 +1801,7 @@ fn create_layout_job(
     job
 }
 
-fn char_ranges_to_byte_ranges(
-    s: &str,
-    char_ranges: &[std::ops::Range<usize>],
-) -> Vec<std::ops::Range<usize>> {
-    let mut byte_ranges = Vec::with_capacity(char_ranges.len());
-    let mut char_to_byte = Vec::new();
-    let mut current_byte = 0;
-    char_to_byte.push(0);
-    for c in s.chars() {
-        current_byte += c.len_utf8();
-        char_to_byte.push(current_byte);
-    }
-    for r in char_ranges {
-        let start = char_to_byte.get(r.start).cloned().unwrap_or(current_byte);
-        let end = char_to_byte.get(r.end).cloned().unwrap_or(current_byte);
-        byte_ranges.push(start..end);
-    }
-    byte_ranges
-}
+
 
 fn highlight_matches(
     job: &mut LayoutJob,
