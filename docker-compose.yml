@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  packager:
+    build:
+      context: .
+      target: builder
+    volumes:
+      - ./dist:/dist
+    command: >
+      sh -c "
+      echo 'Copying packages to ./dist directory...'
+      cp target/debian/*.deb /dist/ || true
+      cp target/generate-rpm/*.rpm /dist/ || true
+      cp target/release-optimized/dr-md /dist/ || true
+      echo 'Done!'
+      "
