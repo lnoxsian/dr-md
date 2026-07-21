@@ -68,7 +68,7 @@ Section: utils
 Priority: optional
 Architecture: ${ARCH}
 Depends: libc6
-Maintainer: dr-md Developers
+Maintainer: lnoxsian
 Description: Sleek, high-performance offline Markdown editor built with egui.
  Doctor Markdown (dr.md) is a lightweight editor featuring live preview,
  syntax highlighting, workspace file tree, and built-in theme support.

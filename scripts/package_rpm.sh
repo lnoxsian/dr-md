@@ -68,8 +68,8 @@ Release:        1%{?dist}
 Summary:        Sleek, high-performance offline Markdown editor built with egui
 License:        MIT
 Group:          Applications/Editors
-Vendor:         dr-md Developers
-Packager:       dr-md Developers
+Vendor:         lnoxsian
+Packager:       lnoxsian
 
 # Disable debuginfo package generation because we are packaging a pre-compiled binary
 %define debug_package %{nil}
@@ -122,7 +122,7 @@ fi
 %{_datadir}/pixmaps/dr-md.png
 
 %changelog
-* Thu Jul 09 2026 dr-md Developers - %{version}-1
+* Thu Jul 09 2026 lnoxsian - %{version}-1
 - Initial release
 EOF
 
