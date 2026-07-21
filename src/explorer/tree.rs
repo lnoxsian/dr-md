@@ -83,9 +83,9 @@ impl FileTree {
             && self.dragged_items.is_empty()
             && !self.drag_started_on_item
         {
-            if pointer.is_decidedly_dragging() {
-                if let Some(press_origin) = pointer.press_origin() {
-                    if ui.clip_rect().contains(press_origin) {
+            if pointer.is_decidedly_dragging()
+                && let Some(press_origin) = pointer.press_origin()
+                    && ui.clip_rect().contains(press_origin) {
                         let latest_pos = pointer.latest_pos().unwrap_or(press_origin);
                         let selection_rect = egui::Rect::from_two_pos(press_origin, latest_pos);
 
@@ -101,8 +101,6 @@ impl FileTree {
                         self.drag_select_rect = Some(selection_rect);
                         self.selected_items = self.initial_selected_items.clone();
                     }
-                }
-            }
         } else {
             self.drag_select_rect = None;
         }
@@ -120,8 +118,8 @@ impl FileTree {
                 self.selected_folder = None;
             }
 
-            if response.hovered() {
-                if ui.input(|i| i.pointer.any_released()) {
+            if response.hovered()
+                && ui.input(|i| i.pointer.any_released()) {
                     let dragged = std::mem::take(&mut self.dragged_items);
                     let valid_dragged: Vec<_> =
                         dragged.into_iter().filter(|src| src != root).collect();
@@ -129,7 +127,6 @@ impl FileTree {
                         self.move_items(&valid_dragged, root, active_file);
                     }
                 }
-            }
 
             response.context_menu(|ui| {
                 if ui.button("New File").clicked() {
@@ -295,11 +292,10 @@ impl FileTree {
 
         if let Some(creating) = &self.creating_type {
             match creating {
-                CreatingType::File { parent_dir } | CreatingType::Folder { parent_dir } => {
-                    if parent_dir == &entry_path {
+                CreatingType::File { parent_dir } | CreatingType::Folder { parent_dir }
+                    if parent_dir == &entry_path => {
                         ui.data_mut(|d| d.insert_temp(id, true));
                     }
-                }
                 _ => {}
             }
         }
@@ -351,19 +347,17 @@ impl FileTree {
             egui::Sense::click_and_drag(),
         );
 
-        if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
-            if header_response.rect.contains(press_origin) {
+        if let Some(press_origin) = ui.input(|i| i.pointer.press_origin())
+            && header_response.rect.contains(press_origin) {
                 self.drag_started_on_item = true;
             }
-        }
 
         // Check marquee selection intersection
-        if let Some(select_rect) = self.drag_select_rect {
-            if select_rect.intersects(header_response.rect) {
+        if let Some(select_rect) = self.drag_select_rect
+            && select_rect.intersects(header_response.rect) {
                 self.selected_items.insert(entry_path.clone());
                 self.selected_folder = Some(entry_path.clone());
             }
-        }
 
         if header_response.drag_started() {
             if self.selected_items.contains(&entry_path) {
@@ -439,18 +433,16 @@ impl FileTree {
         let label = ui.selectable_label(is_active, file_name);
         let label_response = ui.interact(label.rect, label.id, egui::Sense::click_and_drag());
 
-        if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
-            if label_response.rect.contains(press_origin) {
+        if let Some(press_origin) = ui.input(|i| i.pointer.press_origin())
+            && label_response.rect.contains(press_origin) {
                 self.drag_started_on_item = true;
             }
-        }
 
         // Check marquee selection intersection
-        if let Some(select_rect) = self.drag_select_rect {
-            if select_rect.intersects(label_response.rect) {
+        if let Some(select_rect) = self.drag_select_rect
+            && select_rect.intersects(label_response.rect) {
                 self.selected_items.insert(entry_path.clone());
             }
-        }
 
         if label_response.drag_started() {
             if self.selected_items.contains(&entry_path) {
@@ -585,12 +577,11 @@ impl FileTree {
     ) {
         let multi_count = self.selected_items.len();
 
-        if multi_count <= 1 {
-            if ui.button("Rename").clicked() {
+        if multi_count <= 1
+            && ui.button("Rename").clicked() {
                 self.start_rename(entry_path.to_path_buf());
                 ui.close_menu();
             }
-        }
 
         let cut_label = if multi_count > 1 {
             format!("Cut {} items", multi_count)
@@ -682,11 +673,10 @@ impl FileTree {
                                     if let Some(active) = active_file {
                                         if *active == src_path {
                                             *active = unique_dest;
-                                        } else if active.starts_with(&src_path) {
-                                            if let Ok(relative) = active.strip_prefix(&src_path) {
+                                        } else if active.starts_with(&src_path)
+                                            && let Ok(relative) = active.strip_prefix(&src_path) {
                                                 *active = unique_dest.join(relative);
                                             }
-                                        }
                                     }
                                 }
                             }
@@ -745,12 +735,11 @@ impl FileTree {
 
         if let Some(pos) = file_stem.rfind('_') {
             let suffix = &file_stem[pos + 1..];
-            if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
-                if let Ok(num) = suffix.parse::<usize>() {
+            if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit())
+                && let Ok(num) = suffix.parse::<usize>() {
                     base_stem = file_stem[..pos].to_string();
                     counter = num + 1;
                 }
-            }
         }
 
         loop {
@@ -779,7 +768,7 @@ impl FileTree {
                 }
 
                 let result = if src.is_file() {
-                    if let Err(_) = fs::rename(src, &unique_target) {
+                    if fs::rename(src, &unique_target).is_err() {
                         if let Err(e) = fs::copy(src, &unique_target) {
                             Err(e)
                         } else {
@@ -789,7 +778,7 @@ impl FileTree {
                         Ok(())
                     }
                 } else {
-                    if let Err(_) = fs::rename(src, &unique_target) {
+                    if fs::rename(src, &unique_target).is_err() {
                         if let Err(e) = self.copy_dir_all(src, &unique_target) {
                             Err(e)
                         } else {
@@ -806,11 +795,10 @@ impl FileTree {
                     if let Some(active) = active_file {
                         if *active == *src {
                             *active = unique_target;
-                        } else if active.starts_with(src) {
-                            if let Ok(relative) = active.strip_prefix(src) {
+                        } else if active.starts_with(src)
+                            && let Ok(relative) = active.strip_prefix(src) {
                                 *active = unique_target.join(relative);
                             }
-                        }
                     }
                 }
             }
@@ -857,11 +845,10 @@ impl FileTree {
             if let Err(e) = result {
                 tracing::error!("Failed to delete item: {:?}", e);
             } else {
-                if let Some(active) = active_file {
-                    if active == path || active.starts_with(path) {
+                if let Some(active) = active_file
+                    && (active == path || active.starts_with(path)) {
                         *active_file = None;
                     }
-                }
             }
         }
     }
@@ -885,11 +872,13 @@ mod tests {
         let ctx = egui::Context::default();
 
         // Frame 1: Press
-        let mut raw_input1 = egui::RawInput::default();
-        raw_input1.screen_rect = Some(egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1000.0, 1000.0),
-        ));
+        let mut raw_input1 = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1000.0, 1000.0),
+            )),
+            ..Default::default()
+        };
         raw_input1.events.push(egui::Event::PointerButton {
             pos: egui::pos2(10.0, 10.0),
             button: egui::PointerButton::Primary,
@@ -899,11 +888,13 @@ mod tests {
         let _ = ctx.run(raw_input1, |_| {});
 
         // Frame 2: Move and Show
-        let mut raw_input2 = egui::RawInput::default();
-        raw_input2.screen_rect = Some(egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1000.0, 1000.0),
-        ));
+        let mut raw_input2 = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1000.0, 1000.0),
+            )),
+            ..Default::default()
+        };
         raw_input2
             .events
             .push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0))); // > 3.0 delta
@@ -931,11 +922,13 @@ mod tests {
         let ctx = egui::Context::default();
 
         // Frame 1: Press
-        let mut raw_input1 = egui::RawInput::default();
-        raw_input1.screen_rect = Some(egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1000.0, 1000.0),
-        ));
+        let mut raw_input1 = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1000.0, 1000.0),
+            )),
+            ..Default::default()
+        };
         raw_input1.events.push(egui::Event::PointerButton {
             pos: egui::pos2(10.0, 10.0),
             button: egui::PointerButton::Primary,
@@ -945,11 +938,13 @@ mod tests {
         let _ = ctx.run(raw_input1, |_| {});
 
         // Frame 2: Move and Show
-        let mut raw_input2 = egui::RawInput::default();
-        raw_input2.screen_rect = Some(egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1000.0, 1000.0),
-        ));
+        let mut raw_input2 = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1000.0, 1000.0),
+            )),
+            ..Default::default()
+        };
         raw_input2
             .events
             .push(egui::Event::PointerMoved(egui::pos2(50.0, 50.0)));

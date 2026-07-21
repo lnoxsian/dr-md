@@ -139,8 +139,8 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                     content_ui.painter().rect_filled(sep_rect, 0.0, color);
 
                                     // Update split_ratio based on drag
-                                    if sep_response.dragged() {
-                                        if let Some(mouse_pos) =
+                                    if sep_response.dragged()
+                                        && let Some(mouse_pos) =
                                             content_ui.input(|i| i.pointer.latest_pos())
                                         {
                                             let relative_y = mouse_pos.y - min_rect.top();
@@ -148,7 +148,6 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                                 (relative_y / available_height).clamp(0.1, 0.9),
                                             );
                                         }
-                                    }
 
                                     // Change cursor to vertical resize icon
                                     if sep_response.hovered() || sep_response.dragged() {
@@ -244,8 +243,8 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                     content_ui.painter().rect_filled(sep_rect, 0.0, color);
 
                                     // Update split_ratio based on drag
-                                    if sep_response.dragged() {
-                                        if let Some(mouse_pos) =
+                                    if sep_response.dragged()
+                                        && let Some(mouse_pos) =
                                             content_ui.input(|i| i.pointer.latest_pos())
                                         {
                                             let relative_x = mouse_pos.x - min_rect.left();
@@ -253,7 +252,6 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                                 (relative_x / available_width).clamp(0.1, 0.9),
                                             );
                                         }
-                                    }
 
                                     // Change cursor to horizontal resize icon
                                     if sep_response.hovered() || sep_response.dragged() {
@@ -340,6 +338,3 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
         });
 }
 
-fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
-    crate::app::tab_bar::render_tab_bar(ui, state);
-}

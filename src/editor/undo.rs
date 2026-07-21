@@ -74,12 +74,11 @@ impl UndoStack {
             || self.last_edit_kind != current_kind
             || !self.is_contiguous(start_idx, change_len, &edit_type);
 
-        if is_boundary {
-            if self.undo_stack.last() != Some(&old_text) {
+        if is_boundary
+            && self.undo_stack.last() != Some(&old_text) {
                 self.undo_stack.push(old_text);
                 self.redo_stack.clear();
             }
-        }
 
         self.last_edit_kind = current_kind;
         self.last_edit_idx = start_idx;

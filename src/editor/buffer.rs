@@ -30,9 +30,6 @@ impl EditBuffer {
         Ok(())
     }
 
-    pub fn to_string(&self) -> String {
-        self.rope.to_string()
-    }
 
     pub fn len_chars(&self) -> usize {
         self.rope.len_chars()
@@ -51,5 +48,11 @@ impl EditBuffer {
         if s < e {
             self.rope.remove(s..e);
         }
+    }
+}
+
+impl std::fmt::Display for EditBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.rope)
     }
 }

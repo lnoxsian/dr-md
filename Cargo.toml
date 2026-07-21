@@ -26,13 +26,16 @@ egui_commonmark = { path = "crates/egui_commonmark" }
 
 [profile.release]
 # opt-level = 3          # Maximize speed optimizations
-# lto = true             # Enable Link-Time Optimization (increases execution speed)
-# codegen-units = 1      # Set codegen units to 1 for maximum LTO optimization scope
+# lto = "fat"            # Enable Full/Fat Link-Time Optimization
+# codegen-units = 1      # Set codegen units to 1 for maximum LTO scope
 # strip = true           # Remove symbols and debug information to shrink binary size
+# panic = "abort"        # Eliminate unwind tables & landing pads to reduce binary size
 
 [profile.release-optimized]
 inherits = "release"
-opt-level = 3          # Maximize speed optimizations
-lto = true             # Enable Link-Time Optimization (increases execution speed)
-codegen-units = 1      # Set codegen units to 1 for maximum LTO optimization scope
-strip = true           # Remove symbols and debug information to shrink binary size
+opt-level = "z"        # Optimize aggressively for smallest binary size
+lto = "fat"            # Full LTO for maximum cross-crate dead code elimination
+codegen-units = 1      # Single codegen unit for global optimization scope
+strip = true           # Strip all symbols and debuginfo
+panic = "abort"        # Remove panic unwinding overhead
+

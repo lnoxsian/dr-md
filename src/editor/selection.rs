@@ -5,10 +5,6 @@ pub struct Selection {
 }
 
 impl Selection {
-    pub fn new(anchor: usize, head: usize) -> Self {
-        Self { anchor, head }
-    }
-
     pub fn start(&self) -> usize {
         self.anchor.min(self.head)
     }

@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+
 
 mod app;
 mod config;
@@ -45,3 +45,4 @@ fn main() -> eframe::Result<()> {
         Box::new(|cc| Box::new(DoctorMarkdownApp::new(cc, None))),
     )
 }
+

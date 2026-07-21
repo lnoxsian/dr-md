@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ThemeAccent {
+    #[default]
     Blue,
     Purple,
     Orange,
@@ -13,11 +15,6 @@ pub enum ThemeAccent {
     Yellow,
 }
 
-impl Default for ThemeAccent {
-    fn default() -> Self {
-        Self::Blue
-    }
-}
 
 impl ThemeAccent {
     pub fn color(&self) -> egui::Color32 {
@@ -62,31 +59,25 @@ impl ThemeAccent {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum CursorStyle {
+    #[default]
     IBeam,
     Block,
     Underline,
 }
 
-impl Default for CursorStyle {
-    fn default() -> Self {
-        Self::IBeam
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ViewMode {
     Editor,
     Preview,
+    #[default]
     Split,
 }
 
-impl Default for ViewMode {
-    fn default() -> Self {
-        Self::Split
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TabState {
@@ -95,19 +86,12 @@ pub struct TabState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Default)]
 pub struct FileState {
     pub last_open_tabs: Vec<TabState>,
     pub last_active_tab: Option<usize>,
 }
 
-impl Default for FileState {
-    fn default() -> Self {
-        Self {
-            last_open_tabs: Vec::new(),
-            last_active_tab: None,
-        }
-    }
-}
 
 impl FileState {
     fn get_state_path() -> Option<std::path::PathBuf> {
@@ -130,11 +114,10 @@ impl FileState {
     pub fn load() -> Self {
         if let Some(state_path) = Self::get_state_path() {
             if state_path.exists() {
-                if let Ok(content) = std::fs::read_to_string(&state_path) {
-                    if let Ok(state) = toml::from_str(&content) {
+                if let Ok(content) = std::fs::read_to_string(&state_path)
+                    && let Ok(state) = toml::from_str(&content) {
                         return state;
                     }
-                }
             } else {
                 let default_state = Self::default();
                 let _ = default_state.save();
@@ -366,12 +349,6 @@ fn gruvbox_light_visuals() -> egui::Visuals {
     visuals
 }
 
-fn lighten_color(color: egui::Color32, factor: f32) -> egui::Color32 {
-    let r = (color.r() as f32 + (255.0 - color.r() as f32) * factor).round() as u8;
-    let g = (color.g() as f32 + (255.0 - color.g() as f32) * factor).round() as u8;
-    let b = (color.b() as f32 + (255.0 - color.b() as f32) * factor).round() as u8;
-    egui::Color32::from_rgb(r, g, b)
-}
 
 pub fn apply_theme(ctx: &egui::Context, config: &AppConfig) {
     let mut style = (*ctx.style()).clone();
@@ -460,8 +437,8 @@ pub fn setup_fonts(ctx: &egui::Context) {
             if loaded >= max_count {
                 break;
             }
-            if std::path::Path::new(path).exists() {
-                if let Ok(bytes) = std::fs::read(path) {
+            if std::path::Path::new(path).exists()
+                && let Ok(bytes) = std::fs::read(path) {
                     let mut font_data = egui::FontData::from_owned(bytes);
                     // ab_glyph/egui supports loading first face from ttc collections automatically if we set index to 0
                     font_data.index = 0;
@@ -477,7 +454,6 @@ pub fn setup_fonts(ctx: &egui::Context) {
                     }
                     loaded += 1;
                 }
-            }
         }
         loaded
     };
@@ -562,11 +538,10 @@ impl AppConfig {
     pub fn load() -> Self {
         if let Some(config_path) = Self::get_config_path() {
             if config_path.exists() {
-                if let Ok(content) = std::fs::read_to_string(&config_path) {
-                    if let Ok(config) = toml::from_str(&content) {
+                if let Ok(content) = std::fs::read_to_string(&config_path)
+                    && let Ok(config) = toml::from_str(&content) {
                         return config;
                     }
-                }
             } else {
                 let default_config = Self::default();
                 let _ = default_config.save();

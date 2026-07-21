@@ -70,13 +70,12 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         let id = state.editor_id();
                         if let Some(mut text_state) =
                             egui::widgets::text_edit::TextEditState::load(ctx, id)
-                        {
-                            if let Some(range) = text_state.cursor.char_range() {
+                            && let Some(range) = text_state.cursor.char_range() {
                                 let start = range.primary.index.min(range.secondary.index);
                                 let end = range.primary.index.max(range.secondary.index);
                                 let sorted = start..end;
-                                if !sorted.is_empty() {
-                                    if let Some(tab) = state.active_tab_mut() {
+                                if !sorted.is_empty()
+                                    && let Some(tab) = state.active_tab_mut() {
                                         let text_to_copy = tab
                                             .editor
                                             .buffer
@@ -99,29 +98,24 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                         ));
                                         text_state.store(ctx, id);
                                     }
-                                }
                             }
-                        }
                         ui.close_menu();
                     }
                     if ui.button("Copy (Ctrl+C)").clicked() {
                         let id = state.editor_id();
                         if let Some(text_state) =
                             egui::widgets::text_edit::TextEditState::load(ctx, id)
-                        {
-                            if let Some(range) = text_state.cursor.char_range() {
+                            && let Some(range) = text_state.cursor.char_range() {
                                 let start = range.primary.index.min(range.secondary.index);
                                 let end = range.primary.index.max(range.secondary.index);
                                 let sorted = start..end;
-                                if !sorted.is_empty() {
-                                    if let Some(tab) = state.active_tab() {
+                                if !sorted.is_empty()
+                                    && let Some(tab) = state.active_tab() {
                                         let text_to_copy =
                                             tab.editor.buffer.rope.slice(sorted).to_string();
                                         ctx.copy_text(text_to_copy);
                                     }
-                                }
                             }
-                        }
                         ui.close_menu();
                     }
                     if ui.button("Paste (Ctrl+V)").clicked() {
@@ -131,8 +125,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 let id = state.editor_id();
                                 if let Some(mut text_state) =
                                     egui::widgets::text_edit::TextEditState::load(ctx, id)
-                                {
-                                    if let Some(tab) = state.active_tab_mut() {
+                                    && let Some(tab) = state.active_tab_mut() {
                                         let range =
                                             text_state.cursor.char_range().unwrap_or_else(|| {
                                                 let len = tab.editor.buffer.len_chars();
@@ -163,7 +156,6 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                         ));
                                         text_state.store(ctx, id);
                                     }
-                                }
                             }
                         }
                         ui.close_menu();
@@ -188,8 +180,7 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         let id = state.editor_id();
                         if let Some(mut text_state) =
                             egui::widgets::text_edit::TextEditState::load(ctx, id)
-                        {
-                            if let Some(tab) = state.active_tab() {
+                            && let Some(tab) = state.active_tab() {
                                 let len = tab.editor.buffer.len_chars();
                                 let anchor = egui::text::CCursor::new(0);
                                 let head = egui::text::CCursor::new(len);
@@ -198,7 +189,6 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                                 ));
                                 text_state.store(ctx, id);
                             }
-                        }
                         ui.close_menu();
                     }
                     if ui.button("Find in File (Ctrl+F)").clicked() {

@@ -70,13 +70,11 @@ impl EditorRenderer {
     pub fn sync_to_editor(&mut self, editor: &mut Editor, ctx: &egui::Context) {
         if let Some(text_state) =
             egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
-        {
-            if let Some(range) = text_state.cursor.char_range() {
+            && let Some(range) = text_state.cursor.char_range() {
                 editor.cursor.char_idx = range.primary.index;
                 editor.selection.anchor = range.secondary.index;
                 editor.selection.head = range.primary.index;
             }
-        }
         editor.sync_text(&self.content_buffer);
         self.last_version = editor.version;
     }
@@ -483,8 +481,8 @@ impl EditorRenderer {
 
                                     // 0. HANDLE ENTER BETWEEN BRACKETS AND QUOTES
                                     let mut enter_between_pairs = false;
-                                    if typed_char == '\n' {
-                                        if prev_idx > 0 && prev_idx + 1 < new_chars.len() {
+                                    if typed_char == '\n'
+                                        && prev_idx > 0 && prev_idx + 1 < new_chars.len() {
                                             let left = new_chars[prev_idx - 1];
                                             let right = new_chars[prev_idx + 1];
                                             let is_pair = [
@@ -507,7 +505,7 @@ impl EditorRenderer {
                                                         .take(current_idx)
                                                         .collect::<String>(),
                                                 );
-                                                final_text.push_str("\n");
+                                                final_text.push('\n');
                                                 final_text.push_str(
                                                     &self
                                                         .content_buffer
@@ -526,14 +524,12 @@ impl EditorRenderer {
                                                 ));
                                             }
                                         }
-                                    }
 
                                     // 1. STEP OVER CLOSING BRACKETS
                                     let mut stepped_over = false;
                                     if !enter_between_pairs
                                         && [')', ']', '}', '"', '\'', '`'].contains(&typed_char)
-                                    {
-                                        if current_idx < new_chars.len()
+                                        && current_idx < new_chars.len()
                                             && new_chars[current_idx] == typed_char
                                         {
                                             let mut final_text = String::new();
@@ -561,7 +557,6 @@ impl EditorRenderer {
                                                 egui::text::CCursorRange::two(ccursor, ccursor),
                                             ));
                                         }
-                                    }
 
                                     if !enter_between_pairs && !stepped_over {
                                         // 2. AUTOCLOSE OPENING BRACKETS
@@ -670,8 +665,8 @@ impl EditorRenderer {
                                                     ));
                                                 }
                                             }
-                                            '~' => {
-                                                if prev_idx >= 1 && new_chars[prev_idx - 1] == '~' {
+                                            '~'
+                                                if prev_idx >= 1 && new_chars[prev_idx - 1] == '~' => {
                                                     let mut final_text = String::new();
                                                     final_text.push_str(
                                                         &self
@@ -700,7 +695,6 @@ impl EditorRenderer {
                                                         ),
                                                     ));
                                                 }
-                                            }
                                             _ => {}
                                         }
 
@@ -713,7 +707,7 @@ impl EditorRenderer {
                                                     .take(current_idx)
                                                     .collect::<String>(),
                                             );
-                                            final_text.push_str(&ac.to_string());
+                                            final_text.push(ac);
                                             final_text.push_str(
                                                 &self
                                                     .content_buffer
@@ -747,8 +741,8 @@ impl EditorRenderer {
                                         '`' => matching_close = Some('`'),
                                         _ => {}
                                     }
-                                    if let Some(close_char) = matching_close {
-                                        if current_idx < new_chars.len()
+                                    if let Some(close_char) = matching_close
+                                        && current_idx < new_chars.len()
                                             && new_chars[current_idx] == close_char
                                         {
                                             let mut final_text = String::new();
@@ -775,7 +769,6 @@ impl EditorRenderer {
                                                 egui::text::CCursorRange::two(ccursor, ccursor),
                                             ));
                                         }
-                                    }
                                 }
                             }
                         }
@@ -962,8 +955,8 @@ impl EditorRenderer {
 
         ui.memory_mut(|mem| mem.request_focus(editor_id));
 
-        if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(ui.ctx(), editor_id) {
-            if let Some(range) = text_state.cursor.char_range() {
+        if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(ui.ctx(), editor_id)
+            && let Some(range) = text_state.cursor.char_range() {
                 let spaces = " ".repeat(tab_width);
                 
                 if range.primary.index == range.secondary.index {
@@ -1026,8 +1019,8 @@ impl EditorRenderer {
                     }
                     
                     let mut selected_line_starts = vec![first_line_start];
-                    for i in first_line_start..end_idx.min(chars.len()) {
-                        if chars[i] == '\n' && i + 1 < end_idx {
+                    for (i, c) in chars.iter().enumerate().take(end_idx.min(chars.len())).skip(first_line_start) {
+                        if *c == '\n' && i + 1 < end_idx {
                             selected_line_starts.push(i + 1);
                         }
                     }
@@ -1090,7 +1083,6 @@ impl EditorRenderer {
                 text_state.store(ui.ctx(), editor_id);
                 return true;
             }
-        }
         false
     }
 
@@ -1124,13 +1116,10 @@ impl EditorRenderer {
         let mut previous_selection = None;
         if let Some(text_state) =
             egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
-        {
-            if let Some(range) = text_state.cursor.char_range() {
-                if range.primary.index != range.secondary.index {
+            && let Some(range) = text_state.cursor.char_range()
+                && range.primary.index != range.secondary.index {
                     previous_selection = Some(range);
                 }
-            }
-        }
         let is_right_click_pressed = ui.input(|i| i.pointer.secondary_pressed());
 
         self.show_find_panel(ui, editor, true);
@@ -1211,9 +1200,9 @@ impl EditorRenderer {
                                             .desired_width(f32::INFINITY);
                                     let edit_output = text_edit.show(ui);
                                     let edit_res = edit_output.response.clone();
-                                    if self.scroll_to_cursor_requested {
-                                        if let Some(active_idx) = self.active_match_index {
-                                            if let Some(range) = self.matches.get(active_idx) {
+                                    if self.scroll_to_cursor_requested
+                                        && let Some(active_idx) = self.active_match_index
+                                            && let Some(range) = self.matches.get(active_idx) {
                                                 let local_rect =
                                                     edit_output.galley.pos_from_ccursor(
                                                         egui::text::CCursor::new(range.start),
@@ -1226,8 +1215,6 @@ impl EditorRenderer {
                                                 );
                                                 self.scroll_to_cursor_requested = false;
                                             }
-                                        }
-                                    }
 
                                     self.update_cursor_screen_pos(editor, &edit_output);
 
@@ -1244,9 +1231,9 @@ impl EditorRenderer {
                                         font_size,
                                     );
 
-                                    if is_right_click_pressed && edit_res.contains_pointer() {
-                                        if let Some(prev_range) = previous_selection {
-                                            if let Some(mut text_state) =
+                                    if is_right_click_pressed && edit_res.contains_pointer()
+                                        && let Some(prev_range) = previous_selection
+                                            && let Some(mut text_state) =
                                                 egui::widgets::text_edit::TextEditState::load(
                                                     ui.ctx(),
                                                     get_editor_id(editor),
@@ -1259,8 +1246,6 @@ impl EditorRenderer {
                                                     prev_range.secondary.index;
                                                 editor.selection.head = prev_range.primary.index;
                                             }
-                                        }
-                                    }
 
                                     let mut text_changed = self.process_autoclosing(
                                         ui.ctx(),
@@ -1345,9 +1330,9 @@ impl EditorRenderer {
                                 .desired_width(f32::INFINITY);
                             let edit_output = text_edit.show(ui);
                             let edit_res = edit_output.response.clone();
-                            if self.scroll_to_cursor_requested {
-                                if let Some(active_idx) = self.active_match_index {
-                                    if let Some(range) = self.matches.get(active_idx) {
+                            if self.scroll_to_cursor_requested
+                                && let Some(active_idx) = self.active_match_index
+                                    && let Some(range) = self.matches.get(active_idx) {
                                         let local_rect = edit_output.galley.pos_from_ccursor(
                                             egui::text::CCursor::new(range.start),
                                         );
@@ -1356,8 +1341,6 @@ impl EditorRenderer {
                                         ui.scroll_to_rect(screen_rect, Some(egui::Align::Center));
                                         self.scroll_to_cursor_requested = false;
                                     }
-                                }
-                            }
 
                             self.update_cursor_screen_pos(editor, &edit_output);
 
@@ -1374,9 +1357,9 @@ impl EditorRenderer {
                                 font_size,
                             );
 
-                            if is_right_click_pressed && edit_res.contains_pointer() {
-                                if let Some(prev_range) = previous_selection {
-                                    if let Some(mut text_state) =
+                            if is_right_click_pressed && edit_res.contains_pointer()
+                                && let Some(prev_range) = previous_selection
+                                    && let Some(mut text_state) =
                                         egui::widgets::text_edit::TextEditState::load(
                                             ui.ctx(),
                                             get_editor_id(editor),
@@ -1388,8 +1371,6 @@ impl EditorRenderer {
                                         editor.selection.anchor = prev_range.secondary.index;
                                         editor.selection.head = prev_range.primary.index;
                                     }
-                                }
-                            }
 
                             let mut text_changed = self.process_autoclosing(
                                 ui.ctx(),
@@ -1422,21 +1403,18 @@ impl EditorRenderer {
     fn sync_cursor(ctx: &egui::Context, editor: &mut Editor) {
         if let Some(text_state) =
             egui::widgets::text_edit::TextEditState::load(ctx, get_editor_id(editor))
-        {
-            if let Some(range) = text_state.cursor.char_range() {
+            && let Some(range) = text_state.cursor.char_range() {
                 editor.cursor.char_idx = range.primary.index;
                 editor.selection.anchor = range.secondary.index;
                 editor.selection.head = range.primary.index;
             }
-        }
     }
 
     fn render_context_menu(ui: &mut egui::Ui, editor: &mut Editor, content_buffer: &mut String) {
         if ui.button("Cut").clicked() {
             if let Some(mut text_state) =
                 egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
-            {
-                if let Some(range) = text_state.cursor.char_range() {
+                && let Some(range) = text_state.cursor.char_range() {
                     let start = range.primary.index.min(range.secondary.index);
                     let end = range.primary.index.max(range.secondary.index);
                     let sorted = start..end;
@@ -1458,14 +1436,12 @@ impl EditorRenderer {
                         text_state.store(ui.ctx(), get_editor_id(editor));
                     }
                 }
-            }
             ui.close_menu();
         }
         if ui.button("Copy").clicked() {
             if let Some(text_state) =
                 egui::widgets::text_edit::TextEditState::load(ui.ctx(), get_editor_id(editor))
-            {
-                if let Some(range) = text_state.cursor.char_range() {
+                && let Some(range) = text_state.cursor.char_range() {
                     let start = range.primary.index.min(range.secondary.index);
                     let end = range.primary.index.max(range.secondary.index);
                     let sorted = start..end;
@@ -1474,14 +1450,13 @@ impl EditorRenderer {
                         ui.ctx().copy_text(text_to_copy);
                     }
                 }
-            }
             ui.close_menu();
         }
         if ui.button("Paste").clicked() {
             if let Ok(mut clipboard) = arboard::Clipboard::new() {
                 let paste_text = clipboard.get_text().unwrap_or_default();
-                if !paste_text.is_empty() {
-                    if let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
+                if !paste_text.is_empty()
+                    && let Some(mut text_state) = egui::widgets::text_edit::TextEditState::load(
                         ui.ctx(),
                         get_editor_id(editor),
                     ) {
@@ -1511,7 +1486,6 @@ impl EditorRenderer {
                             .set_char_range(Some(egui::text::CCursorRange::two(cursor, cursor)));
                         text_state.store(ui.ctx(), get_editor_id(editor));
                     }
-                }
             }
             ui.close_menu();
         }
@@ -1574,8 +1548,8 @@ impl EditorRenderer {
     fn handle_drag_autoscroll(&self, ui: &mut egui::Ui, editor: &Editor) {
         let is_focused = ui.memory(|mem| mem.has_focus(get_editor_id(editor)));
         let pointer = ui.input(|i| i.pointer.clone());
-        if is_focused && pointer.primary_down() {
-            if let Some(pos) = pointer.latest_pos() {
+        if is_focused && pointer.primary_down()
+            && let Some(pos) = pointer.latest_pos() {
                 let clip_rect = ui.clip_rect();
                 if pos.y < clip_rect.min.y {
                     let delta = ((clip_rect.min.y - pos.y) * 0.15).min(10.0);
@@ -1595,7 +1569,6 @@ impl EditorRenderer {
                     ui.ctx().request_repaint();
                 }
             }
-        }
     }
 
     fn update_cursor_screen_pos(
@@ -1626,9 +1599,9 @@ impl EditorRenderer {
         font_size: f32,
     ) {
         let is_focused = ui.memory(|mem| mem.has_focus(edit_output.response.id));
-        if is_focused && cursor_style != crate::config::CursorStyle::IBeam {
-            if let Some(range) = edit_output.state.cursor.char_range() {
-                if range.primary.index == range.secondary.index {
+        if is_focused && cursor_style != crate::config::CursorStyle::IBeam
+            && let Some(range) = edit_output.state.cursor.char_range()
+                && range.primary.index == range.secondary.index {
                     let ccursor = range.primary;
                     let pos_start = edit_output.galley.pos_from_ccursor(ccursor);
                     let pos_end = edit_output
@@ -1658,9 +1631,9 @@ impl EditorRenderer {
                     let screen_rect = rect.translate(edit_output.galley_pos.to_vec2());
                     ui.painter().rect_filled(screen_rect, 0.0, color);
 
-                    if cursor_style == crate::config::CursorStyle::Block {
-                        if let Some(c) = editor.buffer.rope.get_char(ccursor.index) {
-                            if c != '\n' && c != '\r' && c != '\t' {
+                    if cursor_style == crate::config::CursorStyle::Block
+                        && let Some(c) = editor.buffer.rope.get_char(ccursor.index)
+                            && c != '\n' && c != '\r' && c != '\t' {
                                 let text_color = ui.visuals().extreme_bg_color;
                                 let font_id = egui::FontId::monospace(font_size);
                                 ui.painter().text(
@@ -1671,11 +1644,7 @@ impl EditorRenderer {
                                     text_color,
                                 );
                             }
-                        }
-                    }
                 }
-            }
-        }
     }
 }
 
@@ -1763,17 +1732,17 @@ fn create_layout_job(
             // Check for standard markdown link: [label](url)
             if !matched && line_chars[idx] == '[' {
                 let mut end_bracket = None;
-                for j in (idx + 1)..line_chars.len() {
-                    if line_chars[j] == ']' {
+                for (j, c) in line_chars.iter().enumerate().skip(idx + 1) {
+                    if *c == ']' {
                         end_bracket = Some(j);
                         break;
                     }
                 }
-                if let Some(eb) = end_bracket {
-                    if eb + 1 < line_chars.len() && line_chars[eb + 1] == '(' {
+                if let Some(eb) = end_bracket
+                    && eb + 1 < line_chars.len() && line_chars[eb + 1] == '(' {
                         let mut end_paren = None;
-                        for j in (eb + 2)..line_chars.len() {
-                            if line_chars[j] == ')' {
+                        for (j, c) in line_chars.iter().enumerate().skip(eb + 2) {
+                            if *c == ')' {
                                 end_paren = Some(j);
                                 break;
                             }
@@ -1794,7 +1763,6 @@ fn create_layout_job(
                             matched = true;
                         }
                     }
-                }
             }
 
             if matched {

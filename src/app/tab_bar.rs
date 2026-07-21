@@ -87,7 +87,7 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                 } else {
                                     &filename
                                 };
-                                base.split(|c: char| c == ' ' || c == '_' || c == '-')
+                                base.split([' ', '_', '-'])
                                     .filter(|s| !s.is_empty())
                                     .count()
                             };
@@ -207,10 +207,10 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
 
                                 let press_origin = ui.input(|i| i.pointer.press_origin());
                                 let is_drag_on_close =
-                                    press_origin.map_or(false, |pos| close_rect.contains(pos));
+                                    press_origin.is_some_and(|pos| close_rect.contains(pos));
 
-                                if !is_drag_on_close {
-                                    if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                                if !is_drag_on_close
+                                    && let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
                                         let mut target_idx = None;
 
                                         // Check right neighbor (dragging right)
@@ -251,38 +251,29 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
                                             tab_to_swap = Some((idx, other_idx));
                                         }
                                     }
-                                }
                             } else if response.hovered() {
                                 ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
                             }
 
                             // Switch/close tab on click/press (excluding close button area)
                             if ui.input(|i| i.pointer.button_pressed(egui::PointerButton::Primary))
-                            {
-                                if let Some(press_pos) = ui.input(|i| i.pointer.press_origin()) {
-                                    if new_tab_rect.contains(press_pos)
+                                && let Some(press_pos) = ui.input(|i| i.pointer.press_origin())
+                                    && new_tab_rect.contains(press_pos)
                                         && !close_rect.contains(press_pos)
                                     {
                                         tab_to_switch = Some(idx);
                                     }
-                                }
-                            }
                             // Close button click check
                             if ui.input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
-                            {
-                                if let Some(click_pos) = ui.input(|i| i.pointer.interact_pos()) {
-                                    if close_rect.contains(click_pos) {
+                                && let Some(click_pos) = ui.input(|i| i.pointer.interact_pos())
+                                    && close_rect.contains(click_pos) {
                                         tab_to_close = Some(idx);
                                     }
-                                }
-                            }
-                            if ui.input(|i| i.pointer.button_pressed(egui::PointerButton::Middle)) {
-                                if let Some(press_pos) = ui.input(|i| i.pointer.press_origin()) {
-                                    if new_tab_rect.contains(press_pos) {
+                            if ui.input(|i| i.pointer.button_pressed(egui::PointerButton::Middle))
+                                && let Some(press_pos) = ui.input(|i| i.pointer.press_origin())
+                                    && new_tab_rect.contains(press_pos) {
                                         tab_to_close = Some(idx);
                                     }
-                                }
-                            }
                         }
 
                         if let Some(idx) = tab_to_close {
@@ -334,11 +325,10 @@ pub fn render_tab_bar(ui: &mut egui::Ui, state: &mut AppState) {
             }
         }
 
-        if switched {
-            if let Some(idx) = new_active_idx {
+        if switched
+            && let Some(idx) = new_active_idx {
                 state.switch_tab(idx);
             }
-        }
     } else if state.tab_scroll_accum != 0.0 {
         state.tab_scroll_accum *= 0.8;
         if state.tab_scroll_accum.abs() < 1.0 {

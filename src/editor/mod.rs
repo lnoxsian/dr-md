@@ -85,22 +85,6 @@ impl Editor {
         self.version += 1;
     }
 
-    pub fn insert_text(&mut self, text: &str) {
-        let current_text = self.buffer.to_string();
-        self.undo_stack.push(current_text);
-
-        if let Some(range) = self.selection.range() {
-            self.buffer.remove(range.start, range.end);
-            self.cursor.char_idx = range.start;
-            self.selection.clear(self.cursor.char_idx);
-        }
-
-        self.buffer.insert(self.cursor.char_idx, text);
-        self.cursor.char_idx += text.chars().count();
-        self.selection.clear(self.cursor.char_idx);
-        self.is_dirty = true;
-        self.version += 1;
-    }
 
     pub fn format_selection(&mut self, format_type: &str) {
         let current_text = self.buffer.to_string();
@@ -123,9 +107,7 @@ impl Editor {
                     if selected_text.contains('\n') {
                         let mut lines = Vec::new();
                         for line in selected_text.lines() {
-                            if line.trim().is_empty() {
-                                lines.push(line.to_string());
-                            } else if line.trim().starts_with("- [ ] ") {
+                            if line.trim().is_empty() || line.trim().starts_with("- [ ] ") {
                                 lines.push(line.to_string());
                             } else {
                                 lines.push(format!("- [ ] {}", line));
@@ -133,9 +115,7 @@ impl Editor {
                         }
                         lines.join("\n")
                     } else {
-                        if selected_text.trim().is_empty() {
-                            selected_text
-                        } else if selected_text.trim().starts_with("- [ ] ") {
+                        if selected_text.trim().is_empty() || selected_text.trim().starts_with("- [ ] ") {
                             selected_text
                         } else {
                             format!("- [ ] {}", selected_text)
@@ -313,52 +293,6 @@ impl Editor {
         self.version += 1;
     }
 
-    pub fn delete_backward(&mut self) {
-        if let Some(range) = self.selection.range() {
-            let current_text = self.buffer.to_string();
-            self.undo_stack.push(current_text);
-
-            self.buffer.remove(range.start, range.end);
-            self.cursor.char_idx = range.start;
-            self.selection.clear(self.cursor.char_idx);
-            self.is_dirty = true;
-            self.version += 1;
-        } else if self.cursor.char_idx > 0 {
-            let current_text = self.buffer.to_string();
-            self.undo_stack.push(current_text);
-
-            let start = self.cursor.char_idx - 1;
-            let end = self.cursor.char_idx;
-            self.buffer.remove(start, end);
-            self.cursor.char_idx = start;
-            self.selection.clear(self.cursor.char_idx);
-            self.is_dirty = true;
-            self.version += 1;
-        }
-    }
-
-    pub fn delete_forward(&mut self) {
-        if let Some(range) = self.selection.range() {
-            let current_text = self.buffer.to_string();
-            self.undo_stack.push(current_text);
-
-            self.buffer.remove(range.start, range.end);
-            self.cursor.char_idx = range.start;
-            self.selection.clear(self.cursor.char_idx);
-            self.is_dirty = true;
-            self.version += 1;
-        } else if self.cursor.char_idx < self.buffer.len_chars() {
-            let current_text = self.buffer.to_string();
-            self.undo_stack.push(current_text);
-
-            let start = self.cursor.char_idx;
-            let end = self.cursor.char_idx + 1;
-            self.buffer.remove(start, end);
-            self.selection.clear(self.cursor.char_idx);
-            self.is_dirty = true;
-            self.version += 1;
-        }
-    }
 
     pub fn undo(&mut self) {
         let current_text = self.buffer.to_string();

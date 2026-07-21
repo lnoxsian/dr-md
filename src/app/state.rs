@@ -81,11 +81,10 @@ impl AppState {
                     }
                 }
             }
-            if let Some(active_idx) = last_active {
-                if active_idx < state.tabs.len() {
+            if let Some(active_idx) = last_active
+                && active_idx < state.tabs.len() {
                     state.switch_tab_inner(active_idx);
                 }
-            }
         }
 
         state
@@ -223,20 +222,18 @@ impl AppState {
 
     pub fn sync_cursor_from_egui(&mut self, ctx: &egui::Context) {
         let id = self.editor_id();
-        if let Some(tab) = self.active_tab_mut() {
-            if let Some(text_state) = egui::widgets::text_edit::TextEditState::load(ctx, id) {
-                if let Some(range) = text_state.cursor.char_range() {
+        if let Some(tab) = self.active_tab_mut()
+            && let Some(text_state) = egui::widgets::text_edit::TextEditState::load(ctx, id)
+                && let Some(range) = text_state.cursor.char_range() {
                     tab.editor.cursor.char_idx = range.primary.index;
                     tab.editor.selection.anchor = range.secondary.index;
                     tab.editor.selection.head = range.primary.index;
                 }
-            }
-        }
     }
 
     pub fn check_autosave(&mut self, ctx: &egui::Context) {
-        if self.session_dirty {
-            if let Some(change_time) = self.last_session_change_time {
+        if self.session_dirty
+            && let Some(change_time) = self.last_session_change_time {
                 if change_time.elapsed() >= std::time::Duration::from_secs(1) {
                     let _ = self.file_state.save();
                     let _ = self.config.save();
@@ -246,10 +243,9 @@ impl AppState {
                     ctx.request_repaint_after(std::time::Duration::from_millis(500));
                 }
             }
-        }
 
-        if self.config.autosave {
-            if let Some(idx) = self.active_tab_index {
+        if self.config.autosave
+            && let Some(idx) = self.active_tab_index {
                 let is_dirty_and_has_path = self
                     .tabs
                     .get(idx)
@@ -279,7 +275,6 @@ impl AppState {
                     return;
                 }
             }
-        }
         self.last_edit_time = None;
         if let Some(tab) = self.active_tab() {
             self.last_editor_version = tab.editor.version;

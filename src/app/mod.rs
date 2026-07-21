@@ -89,8 +89,8 @@ impl eframe::App for DoctorMarkdownApp {
                 }
                 ShortcutAction::SelectAll => {
                     let editor_id = self.state.editor_id();
-                    if let Some(tab) = self.state.active_tab() {
-                        if let Some(mut text_state) =
+                    if let Some(tab) = self.state.active_tab()
+                        && let Some(mut text_state) =
                             egui::widgets::text_edit::TextEditState::load(ctx, editor_id)
                         {
                             let len = tab.editor.buffer.len_chars();
@@ -101,7 +101,6 @@ impl eframe::App for DoctorMarkdownApp {
                                 .set_char_range(Some(egui::text::CCursorRange::two(anchor, head)));
                             text_state.store(ctx, editor_id);
                         }
-                    }
                 }
                 ShortcutAction::ViewEditor => {
                     if let Some(tab) = self.state.active_tab_mut() {
@@ -126,11 +125,7 @@ impl eframe::App for DoctorMarkdownApp {
                 }
                 ShortcutAction::ToggleFocusMode => {
                     self.state.focus_mode = !self.state.focus_mode;
-                    if self.state.focus_mode {
-                        self.state.explorer_visible = false;
-                    } else {
-                        self.state.explorer_visible = true;
-                    }
+                    self.state.explorer_visible = !self.state.focus_mode;
                 }
                 ShortcutAction::Bold => {
                     if let Some(tab) = self.state.active_tab_mut() {
@@ -172,8 +167,8 @@ impl eframe::App for DoctorMarkdownApp {
                         pos.or_else(|| ctx.input(|i| i.pointer.latest_pos()));
                 }
                 ShortcutAction::NextTab => {
-                    if !self.state.tabs.is_empty() {
-                        if let Some(idx) = self.state.active_tab_index {
+                    if !self.state.tabs.is_empty()
+                        && let Some(idx) = self.state.active_tab_index {
                             let next_idx = (idx + 1) % self.state.tabs.len();
                             self.state.switch_tab(next_idx);
                             ctx.memory_mut(|mem| {
@@ -182,11 +177,10 @@ impl eframe::App for DoctorMarkdownApp {
                                 }
                             });
                         }
-                    }
                 }
                 ShortcutAction::PrevTab => {
-                    if !self.state.tabs.is_empty() {
-                        if let Some(idx) = self.state.active_tab_index {
+                    if !self.state.tabs.is_empty()
+                        && let Some(idx) = self.state.active_tab_index {
                             let prev_idx = if idx == 0 {
                                 self.state.tabs.len() - 1
                             } else {
@@ -199,7 +193,6 @@ impl eframe::App for DoctorMarkdownApp {
                                 }
                             });
                         }
-                    }
                 }
                 ShortcutAction::SearchInFile => {
                     if let Some(tab) = self.state.active_tab_mut() {
@@ -214,13 +207,12 @@ impl eframe::App for DoctorMarkdownApp {
 
         let mut request_dialog = false;
         let mut cursor_pos = None;
-        if let Some(tab) = self.state.active_tab_mut() {
-            if tab.editor.request_table_dialog {
+        if let Some(tab) = self.state.active_tab_mut()
+            && tab.editor.request_table_dialog {
                 tab.editor.request_table_dialog = false;
                 request_dialog = true;
                 cursor_pos = tab.editor.cursor_screen_pos;
             }
-        }
         if request_dialog {
             self.state.insert_table_dialog_open = true;
             self.state.insert_table_dialog_pos =
@@ -269,13 +261,11 @@ impl eframe::App for DoctorMarkdownApp {
 
             if let Some(response) = window_response {
                 let rect = response.response.rect;
-                if ctx.input(|i| i.pointer.button_clicked(egui::PointerButton::Primary)) {
-                    if let Some(click_pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                        if !rect.contains(click_pos) {
+                if ctx.input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
+                    && let Some(click_pos) = ctx.input(|i| i.pointer.interact_pos())
+                        && !rect.contains(click_pos) {
                             close_dialog = true;
                         }
-                    }
-                }
             }
 
             if close_dialog {
@@ -323,8 +313,8 @@ impl eframe::App for DoctorMarkdownApp {
 
             if path_part.is_empty() {
                 // Current file anchor link
-                if let Some(anchor) = anchor_part {
-                    if let Some(tab) = self.state.active_tab_mut() {
+                if let Some(anchor) = anchor_part
+                    && let Some(tab) = self.state.active_tab_mut() {
                         let doc_text = tab.editor.buffer.to_string();
                         if let Some(line_idx) = find_heading_line(&doc_text, anchor) {
                             // 1. Move editor cursor to this line
@@ -346,7 +336,6 @@ impl eframe::App for DoctorMarkdownApp {
                             self.state.preview.scroll_target_y = Some(target_offset);
                         }
                     }
-                }
             } else if !path_part.starts_with("http://")
                 && !path_part.starts_with("https://")
                 && !path_part.starts_with("mailto:")
@@ -372,8 +361,8 @@ impl eframe::App for DoctorMarkdownApp {
                     commands::execute_open_file(&mut self.state, target_path.clone());
                     
                     // If there was an anchor, jump to it in the newly opened file!
-                    if let Some(anchor) = anchor_part {
-                        if let Some(tab) = self.state.active_tab_mut() {
+                    if let Some(anchor) = anchor_part
+                        && let Some(tab) = self.state.active_tab_mut() {
                             let doc_text = tab.editor.buffer.to_string();
                             if let Some(line_idx) = find_heading_line(&doc_text, anchor) {
                                 // 1. Move editor cursor to this line
@@ -395,7 +384,6 @@ impl eframe::App for DoctorMarkdownApp {
                                 self.state.preview.scroll_target_y = Some(target_offset);
                             }
                         }
-                    }
                 } else {
                     tracing::warn!("Linked path does not exist: {:?}", target_path);
                 }
@@ -489,12 +477,11 @@ pub fn slugify(text: &str) -> String {
         if c.is_alphanumeric() {
             slug.push(c.to_ascii_lowercase());
             last_was_hyphen = false;
-        } else if c.is_whitespace() || c == '-' || c == '_' {
-            if !last_was_hyphen {
+        } else if (c.is_whitespace() || c == '-' || c == '_')
+            && !last_was_hyphen {
                 slug.push('-');
                 last_was_hyphen = true;
             }
-        }
     }
     let mut trimmed = slug.as_str();
     while trimmed.starts_with('-') || trimmed.starts_with('_') {

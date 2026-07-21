@@ -6,13 +6,11 @@ pub fn execute_open_file(state: &mut AppState, path: PathBuf) {
 }
 
 pub fn execute_save(state: &mut AppState) {
-    if let Some(tab) = state.active_tab_mut() {
-        if tab.editor.active_path.is_some() {
-            if let Err(e) = tab.editor.save_file() {
+    if let Some(tab) = state.active_tab_mut()
+        && tab.editor.active_path.is_some()
+            && let Err(e) = tab.editor.save_file() {
                 tracing::error!("Failed to save file: {:?}", e);
             }
-        }
-    }
 }
 
 pub fn execute_save_as(state: &mut AppState, path: PathBuf) {

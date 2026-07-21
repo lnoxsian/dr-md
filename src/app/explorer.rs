@@ -23,23 +23,20 @@ pub fn render_explorer(ctx: &egui::Context, state: &mut AppState) {
 
                         if active_file != state.vault.active_file {
                             if active_file.is_none() {
-                                if let Some(ref prev_path) = state.vault.active_file {
-                                    if let Some(idx) =
+                                if let Some(ref prev_path) = state.vault.active_file
+                                    && let Some(idx) =
                                         state.tabs.iter().position(|t| t.path == *prev_path)
                                     {
                                         state.close_tab(idx);
                                     }
-                                }
                             } else if let (Some(prev_path), Some(new_path)) =
                                 (state.vault.active_file.as_ref(), active_file.as_ref())
-                            {
-                                if let Some(idx) =
+                                && let Some(idx) =
                                     state.tabs.iter().position(|t| t.path == *prev_path)
                                 {
                                     state.tabs[idx].path = new_path.clone();
                                     state.tabs[idx].editor.active_path = Some(new_path.clone());
                                 }
-                            }
                             state.vault.active_file = active_file.clone();
                         }
 
@@ -49,11 +46,10 @@ pub fn render_explorer(ctx: &egui::Context, state: &mut AppState) {
                     } else {
                         ui.vertical_centered(|ui| {
                             ui.label("No folder opened");
-                            if ui.button("Open Folder").clicked() {
-                                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                            if ui.button("Open Folder").clicked()
+                                && let Some(path) = rfd::FileDialog::new().pick_folder() {
                                     commands::execute_open_folder(state, path);
                                 }
-                            }
                         });
                     }
                 });
