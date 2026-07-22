@@ -76,3 +76,6 @@ package-deb:
 # Package the application as a .rpm package
 package-rpm:
 	@./scripts/package_rpm.sh
+
+hello:
+	echo "hello"

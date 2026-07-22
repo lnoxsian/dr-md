@@ -153,6 +153,7 @@ pub struct AppConfig {
     pub reopen_last_files: bool,
     pub mirror_mode: bool,
     pub gpu_acceleration: bool,
+    pub preview_max_width: f32,
 }
 
 impl Default for AppConfig {
@@ -169,6 +170,7 @@ impl Default for AppConfig {
             reopen_last_files: true,
             mirror_mode: false,
             gpu_acceleration: true,
+            preview_max_width: 1000.0,
         }
     }
 }

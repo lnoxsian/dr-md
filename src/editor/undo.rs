@@ -18,6 +18,8 @@ pub enum EditType {
     Replace,
 }
 
+const MAX_UNDO_STACK_SIZE: usize = 100;
+
 pub struct UndoStack {
     undo_stack: Vec<String>,
     redo_stack: Vec<String>,
@@ -42,6 +44,9 @@ impl UndoStack {
     pub fn push(&mut self, text: String) {
         if self.undo_stack.last() != Some(&text) {
             self.undo_stack.push(text);
+            if self.undo_stack.len() > MAX_UNDO_STACK_SIZE {
+                self.undo_stack.remove(0);
+            }
             self.redo_stack.clear();
         }
         self.reset_tracking();
@@ -77,6 +82,9 @@ impl UndoStack {
         if is_boundary
             && self.undo_stack.last() != Some(&old_text) {
                 self.undo_stack.push(old_text);
+                if self.undo_stack.len() > MAX_UNDO_STACK_SIZE {
+                    self.undo_stack.remove(0);
+                }
                 self.redo_stack.clear();
             }
 

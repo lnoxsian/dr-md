@@ -2,6 +2,14 @@ use crate::editor::Editor;
 use crate::editor::renderer::EditorRenderer;
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
+#[derive(Clone, Debug)]
+pub struct ZoomModalState {
+    pub uri: String,
+    pub bytes: std::sync::Arc<[u8]>,
+    pub zoom: f32,
+    pub scroll_pos: egui::Vec2,
+}
+
 pub struct MarkdownPreview {
     pub cache: CommonMarkCache,
     pub cached_content: String,
@@ -12,6 +20,7 @@ pub struct MarkdownPreview {
     pub last_viewport_height: f32,
     pub last_cursor_char_idx: Option<usize>,
     pub scroll_target_y: Option<f32>,
+    pub active_zoom: Option<ZoomModalState>,
 }
 
 impl MarkdownPreview {
@@ -26,9 +35,11 @@ impl MarkdownPreview {
             last_viewport_height: 0.0,
             last_cursor_char_idx: None,
             scroll_target_y: None,
+            active_zoom: None,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -39,13 +50,26 @@ impl MarkdownPreview {
         theme: &str,
         mirror_mode: bool,
         show_search: bool,
+        preview_max_width: f32,
     ) {
+        if let Some((uri, bytes)) = self.cache.zoomed_image_request.take() {
+            self.active_zoom = Some(ZoomModalState {
+                uri,
+                bytes,
+                zoom: 1.0,
+                scroll_pos: egui::Vec2::ZERO,
+            });
+        }
+
         if show_search {
             editor_renderer.show_find_panel(ui, editor, false);
         }
 
         let path_changed = self.last_path.as_deref() != Some(tab_path);
         if path_changed || editor.version != self.last_version {
+            if path_changed {
+                self.active_zoom = None;
+            }
             self.cached_content = editor.buffer.to_string();
             self.processed_content = super::parser::preprocess_wiki_links(&self.cached_content);
             self.last_version = editor.version;
@@ -84,8 +108,16 @@ impl MarkdownPreview {
         }
 
         let scroll_output = scroll_area.show(ui, |ui| {
+            let available_w = ui.available_width();
+            let min_padding = 10.0;
+            let side_padding = if preview_max_width > 0.0 && available_w > preview_max_width + (min_padding * 2.0) {
+                ((available_w - preview_max_width) / 2.0).max(min_padding)
+            } else {
+                min_padding
+            };
+
             egui::Frame::none()
-                .inner_margin(egui::Margin::symmetric(24.0, 8.0))
+                .inner_margin(egui::Margin::symmetric(side_padding, 10.0))
                 .show(ui, |ui| {
                     let mut style = ui.style().as_ref().clone();
                     let body_font = egui::FontId::new(font_size, egui::FontFamily::Proportional);
@@ -250,6 +282,76 @@ impl MarkdownPreview {
                 self.last_version = editor.version;
             }
         }
+
+        if let Some(zoom_state) = &mut self.active_zoom {
+            let mut close = false;
+            let pane_rect = ui.max_rect();
+
+            // Mouse Wheel Zooming (works with scroll wheel or Ctrl + scroll wheel)
+            let scroll_y = ui.ctx().input(|i| {
+                if i.smooth_scroll_delta.y != 0.0 {
+                    i.smooth_scroll_delta.y
+                } else {
+                    i.raw_scroll_delta.y
+                }
+            });
+
+            if scroll_y != 0.0 {
+                let factor = if scroll_y > 0.0 { 1.15 } else { 0.85 };
+                zoom_state.zoom = (zoom_state.zoom * factor).clamp(0.25, 10.0);
+            }
+
+            egui::Area::new(egui::Id::new("mermaid_zoom_fullscreen"))
+                .order(egui::Order::Foreground)
+                .fixed_pos(pane_rect.min)
+                .show(ui.ctx(), |ui| {
+                    let mut content_ui = ui.child_ui(
+                        pane_rect,
+                        egui::Layout::top_down(egui::Align::Min),
+                    );
+                    content_ui.set_clip_rect(pane_rect);
+
+                    egui::Frame::none()
+                        .fill(ui.visuals().window_fill)
+                        .stroke(ui.visuals().window_stroke)
+                        .inner_margin(egui::Margin::same(10.0))
+                        .show(&mut content_ui, |ui| {
+                            egui::ScrollArea::both()
+                                .auto_shrink([false; 2])
+                                .horizontal_scroll_offset(zoom_state.scroll_pos.x)
+                                .vertical_scroll_offset(zoom_state.scroll_pos.y)
+                                .show(ui, |ui| {
+                                    let img = egui::Image::from_bytes(
+                                        zoom_state.uri.clone(),
+                                        zoom_state.bytes.clone(),
+                                    )
+                                    .fit_to_original_size(zoom_state.zoom);
+                                    ui.add(img);
+                                });
+
+                            let (primary_down, pointer_delta) = ui.ctx().input(|i| {
+                                (i.pointer.primary_down(), i.pointer.delta())
+                            });
+
+                            if primary_down && pointer_delta != egui::Vec2::ZERO {
+                                zoom_state.scroll_pos -= pointer_delta;
+                                zoom_state.scroll_pos.x = zoom_state.scroll_pos.x.max(0.0);
+                                zoom_state.scroll_pos.y = zoom_state.scroll_pos.y.max(0.0);
+                                ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grabbing);
+                            } else {
+                                ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::Grab);
+                            }
+                        });
+                });
+
+            if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
+                close = true;
+            }
+
+            if close {
+                self.active_zoom = None;
+            }
+        }
     }
 }
 
@@ -283,6 +385,7 @@ mod tests {
                     "dark",
                     false,
                     true,
+                    1000.0,
                 );
             });
         });

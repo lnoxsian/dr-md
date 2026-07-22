@@ -483,6 +483,22 @@ pub fn render_menu_bar(ctx: &egui::Context, state: &mut AppState) {
                         crate::config::apply_theme(ui.ctx(), &state.config);
                     }
                     ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.label("Content Width:");
+                        if ui
+                            .add(
+                                egui::DragValue::new(&mut state.config.preview_max_width)
+                                    .suffix(" px")
+                                    .clamp_range(300.0..=5000.0)
+                                    .speed(10.0),
+                            )
+                            .on_hover_text("Maximum content width in preview pane.")
+                            .changed()
+                        {
+                            let _ = state.config.save();
+                        }
+                    });
+                    ui.separator();
                     if ui
                         .checkbox(&mut state.config.line_numbers, "Show Line Numbers")
                         .changed()

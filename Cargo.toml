@@ -20,16 +20,17 @@ rfd = "0.14"
 arboard = "3.6.1"
 url = "2.5"
 regex = "1.10"
+tikv-jemallocator = "0.6"
 
 [patch.crates-io]
 egui_commonmark = { path = "crates/egui_commonmark" }
 
 [profile.release]
-# opt-level = 3          # Maximize speed optimizations
-# lto = "fat"            # Enable Full/Fat Link-Time Optimization
-# codegen-units = 1      # Set codegen units to 1 for maximum LTO scope
-# strip = true           # Remove symbols and debug information to shrink binary size
-# panic = "abort"        # Eliminate unwind tables & landing pads to reduce binary size
+opt-level = 3          # Maximize speed optimizations
+lto = "fat"            # Enable Full/Fat Link-Time Optimization
+codegen-units = 1      # Set codegen units to 1 for maximum LTO scope
+strip = true           # Remove symbols and debug information to shrink binary size
+panic = "abort"        # Eliminate unwind tables & landing pads to reduce binary size
 
 [profile.release-optimized]
 inherits = "release"
@@ -38,4 +39,5 @@ lto = "fat"            # Full LTO for maximum cross-crate dead code elimination
 codegen-units = 1      # Single codegen unit for global optimization scope
 strip = true           # Strip all symbols and debuginfo
 panic = "abort"        # Remove panic unwinding overhead
+
 

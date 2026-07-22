@@ -86,10 +86,18 @@ pub fn render_mermaid(ui: &mut Ui, cache: &mut crate::CommonMarkCache, content: 
             Ok(())
         }
         MermaidCacheEntry::Ready { uri, bytes } => {
-            let image = Image::from_bytes(uri, bytes)
+            let image = Image::from_bytes(uri.clone(), bytes.clone())
                 .fit_to_original_size(1.0)
-                .max_width(max_width);
-            ui.add(image);
+                .max_width(max_width)
+                .sense(egui::Sense::click());
+
+            let response = ui.add(image)
+                .on_hover_text("Preview diagram");
+
+            if response.clicked() {
+                cache.zoomed_image_request = Some((uri, bytes));
+            }
+
             Ok(())
         }
         MermaidCacheEntry::Failure(err) => Err(err),

@@ -58,6 +58,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                     &theme,
                                     state.config.mirror_mode,
                                     true,
+                                    state.config.preview_max_width,
                                 );
                             }
                             ViewMode::Split => {
@@ -171,6 +172,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                         &theme,
                                         state.config.mirror_mode,
                                         false,
+                                        state.config.preview_max_width,
                                     );
                                 } else {
                                     // Horizontal Split (Side-by-Side)
@@ -275,6 +277,7 @@ pub fn render_editor_window(ctx: &egui::Context, state: &mut AppState) {
                                         &theme,
                                         state.config.mirror_mode,
                                         false,
+                                        state.config.preview_max_width,
                                     );
                                 }
                             }

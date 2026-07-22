@@ -159,6 +159,7 @@ impl AppState {
         } else {
             self.last_editor_version = 0;
         }
+        self.preview.active_zoom = None;
         self.last_edit_time = None;
     }
 
@@ -172,6 +173,7 @@ impl AppState {
             return;
         }
 
+        self.preview.active_zoom = None;
         self.active_tab_index = Some(new_idx);
         let tab_path = self.tabs[new_idx].path.clone();
         self.vault.active_file = Some(tab_path);

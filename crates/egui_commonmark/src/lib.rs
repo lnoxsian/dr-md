@@ -56,16 +56,24 @@ use syntect::{
 #[cfg(feature = "pulldown_cmark")]
 use parsers::pulldown::ScrollableCache;
 
+#[cfg(feature = "better_syntax_highlighting")]
+static DEFAULT_SYNTAX_SET: std::sync::LazyLock<std::sync::Arc<SyntaxSet>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(SyntaxSet::load_defaults_newlines()));
+
+#[cfg(feature = "better_syntax_highlighting")]
+static DEFAULT_THEME_SET: std::sync::LazyLock<std::sync::Arc<ThemeSet>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(ThemeSet::load_defaults()));
+
 /// A cache used for storing content such as images.
 #[derive(Debug)]
 pub struct CommonMarkCache {
     // Everything stored in `CommonMarkCache` must take into account that
     // the cache is for multiple `CommonMarkviewer`s with different source_ids.
     #[cfg(feature = "better_syntax_highlighting")]
-    ps: SyntaxSet,
+    ps: std::sync::Arc<SyntaxSet>,
 
     #[cfg(feature = "better_syntax_highlighting")]
-    ts: ThemeSet,
+    ts: std::sync::Arc<ThemeSet>,
 
     link_hooks: HashMap<String, bool>,
 
@@ -74,6 +82,7 @@ pub struct CommonMarkCache {
     has_installed_loaders: bool,
     pub(crate) mermaid_cache: std::sync::Arc<std::sync::Mutex<HashMap<u64, crate::mermaid::MermaidCacheEntry>>>,
     pub(crate) math_cache: HashMap<u64, Vec<u8>>,
+    pub zoomed_image_request: Option<(String, std::sync::Arc<[u8]>)>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -81,15 +90,16 @@ impl Default for CommonMarkCache {
     fn default() -> Self {
         Self {
             #[cfg(feature = "better_syntax_highlighting")]
-            ps: SyntaxSet::load_defaults_newlines(),
+            ps: DEFAULT_SYNTAX_SET.clone(),
             #[cfg(feature = "better_syntax_highlighting")]
-            ts: ThemeSet::load_defaults(),
+            ts: DEFAULT_THEME_SET.clone(),
             link_hooks: HashMap::new(),
             #[cfg(feature = "pulldown_cmark")]
             scroll: Default::default(),
             has_installed_loaders: false,
             mermaid_cache: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
             math_cache: HashMap::new(),
+            zoomed_image_request: None,
         }
     }
 }
@@ -97,16 +107,16 @@ impl Default for CommonMarkCache {
 impl CommonMarkCache {
     #[cfg(feature = "better_syntax_highlighting")]
     pub fn add_syntax_from_folder(&mut self, path: &str) {
-        let mut builder = self.ps.clone().into_builder();
+        let mut builder = (*self.ps).clone().into_builder();
         let _ = builder.add_from_folder(path, true);
-        self.ps = builder.build();
+        self.ps = std::sync::Arc::new(builder.build());
     }
 
     #[cfg(feature = "better_syntax_highlighting")]
     pub fn add_syntax_from_str(&mut self, s: &str, fallback_name: Option<&str>) {
-        let mut builder = self.ps.clone().into_builder();
+        let mut builder = (*self.ps).clone().into_builder();
         let _ = SyntaxDefinition::load_from_str(s, true, fallback_name).map(|d| builder.add(d));
-        self.ps = builder.build();
+        self.ps = std::sync::Arc::new(builder.build());
     }
 
     #[cfg(feature = "better_syntax_highlighting")]
@@ -117,7 +127,10 @@ impl CommonMarkCache {
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<(), syntect::LoadingError> {
-        self.ts.add_from_folder(path)
+        let mut ts = ThemeSet { themes: self.ts.themes.clone() };
+        ts.add_from_folder(path)?;
+        self.ts = std::sync::Arc::new(ts);
+        Ok(())
     }
 
     #[cfg(feature = "better_syntax_highlighting")]
@@ -130,9 +143,10 @@ impl CommonMarkCache {
         bytes: &[u8],
     ) -> Result<(), syntect::LoadingError> {
         let mut cursor = std::io::Cursor::new(bytes);
-        self.ts
-            .themes
-            .insert(name.into(), ThemeSet::load_from_reader(&mut cursor)?);
+        let theme = ThemeSet::load_from_reader(&mut cursor)?;
+        let mut ts = ThemeSet { themes: self.ts.themes.clone() };
+        ts.themes.insert(name.into(), theme);
+        self.ts = std::sync::Arc::new(ts);
         Ok(())
     }
 
