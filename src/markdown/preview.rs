@@ -110,8 +110,10 @@ impl MarkdownPreview {
         let scroll_output = scroll_area.show(ui, |ui| {
             let available_w = ui.available_width();
             let min_padding = 10.0;
-            let side_padding = if preview_max_width > 0.0 && available_w > preview_max_width + (min_padding * 2.0) {
-                ((available_w - preview_max_width) / 2.0).max(min_padding)
+            let pct = preview_max_width.clamp(20.0, 100.0);
+            let side_padding = if pct < 100.0 {
+                let content_w = available_w * (pct / 100.0);
+                ((available_w - content_w) / 2.0).max(min_padding)
             } else {
                 min_padding
             };

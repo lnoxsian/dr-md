@@ -36,4 +36,10 @@ The app uses the platform command modifier, so `Ctrl` on Linux and Windows maps 
 
 ## Navigation
 
-The keymap currently reserves entries for additional navigation features, but they are not wired into the app loop yet.
+- `Ctrl+P` - Quick open / search files in explorer
+- `Ctrl+Tab` - Switch to next tab
+- `Ctrl+Shift+Tab` - Switch to previous tab
+- `Alt+Left` - Switch to previous tab
+- `Alt+Right` - Switch to next tab
+
+

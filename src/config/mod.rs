@@ -161,7 +161,7 @@ impl Default for AppConfig {
         Self {
             theme: "dark".to_string(),
             theme_accent: ThemeAccent::default(),
-            font_size: 14.0,
+            font_size: 16.0,
             line_numbers: true,
             autosave: true,
             tab_width: 4,
@@ -170,7 +170,7 @@ impl Default for AppConfig {
             reopen_last_files: true,
             mirror_mode: false,
             gpu_acceleration: true,
-            preview_max_width: 1000.0,
+            preview_max_width: 80.0,
         }
     }
 }
@@ -540,19 +540,27 @@ impl AppConfig {
     }
 
     pub fn load() -> Self {
-        if let Some(config_path) = Self::get_config_path() {
+        let mut config = if let Some(config_path) = Self::get_config_path() {
             if config_path.exists() {
                 if let Ok(content) = std::fs::read_to_string(&config_path)
                     && let Ok(config) = toml::from_str(&content) {
-                        return config;
+                        config
+                    } else {
+                        Self::default()
                     }
             } else {
                 let default_config = Self::default();
                 let _ = default_config.save();
-                return default_config;
+                default_config
             }
+        } else {
+            Self::default()
+        };
+
+        if config.preview_max_width > 100.0 {
+            config.preview_max_width = 80.0;
         }
-        Self::default()
+        config
     }
 
     pub fn save(&self) -> Result<(), anyhow::Error> {

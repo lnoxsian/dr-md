@@ -201,7 +201,45 @@ impl eframe::App for DoctorMarkdownApp {
                         tab.editor_renderer.update_find_matches();
                     }
                 }
-                _ => {}
+                ShortcutAction::QuickOpen => {
+                    self.state.explorer_visible = true;
+                    self.state.explorer.toggle_search();
+                }
+                ShortcutAction::SearchInVault | ShortcutAction::GoToLine => {
+                    if let Some(tab) = self.state.active_tab_mut() {
+                        tab.editor_renderer.find_visible = true;
+                        tab.editor_renderer.focus_search_input = true;
+                        tab.editor_renderer.update_find_matches();
+                    }
+                }
+                ShortcutAction::Back => {
+                    if !self.state.tabs.is_empty()
+                        && let Some(idx) = self.state.active_tab_index {
+                            let prev_idx = if idx == 0 {
+                                self.state.tabs.len() - 1
+                            } else {
+                                idx - 1
+                            };
+                            self.state.switch_tab(prev_idx);
+                            ctx.memory_mut(|mem| {
+                                if let Some(id) = mem.focused() {
+                                    mem.surrender_focus(id);
+                                }
+                            });
+                        }
+                }
+                ShortcutAction::Forward => {
+                    if !self.state.tabs.is_empty()
+                        && let Some(idx) = self.state.active_tab_index {
+                            let next_idx = (idx + 1) % self.state.tabs.len();
+                            self.state.switch_tab(next_idx);
+                            ctx.memory_mut(|mem| {
+                                if let Some(id) = mem.focused() {
+                                    mem.surrender_focus(id);
+                                }
+                            });
+                        }
+                }
             }
         }
 

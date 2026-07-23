@@ -16,6 +16,10 @@ pub enum ClipboardAction {
 }
 
 pub struct FileTree {
+    pub search_visible: bool,
+    pub search_query: String,
+    pub focus_search: bool,
+    pub search_selected_index: usize,
     pub creating_type: Option<CreatingType>,
     pub name_buffer: String,
     pub focus_input: bool,
@@ -33,6 +37,10 @@ pub struct FileTree {
 impl FileTree {
     pub fn new() -> Self {
         Self {
+            search_visible: false,
+            search_query: String::new(),
+            focus_search: false,
+            search_selected_index: 0,
             creating_type: None,
             name_buffer: String::new(),
             focus_input: false,
@@ -45,6 +53,15 @@ impl FileTree {
             drag_select_rect: None,
             initial_selected_items: HashSet::new(),
             drag_started_on_item: false,
+        }
+    }
+
+    pub fn toggle_search(&mut self) {
+        self.search_visible = !self.search_visible;
+        if self.search_visible {
+            self.focus_search = true;
+        } else {
+            self.search_query.clear();
         }
     }
 
@@ -64,6 +81,47 @@ impl FileTree {
         self.focus_input = true;
     }
 
+    pub fn collect_matching_files(
+        &self,
+        dir: &Path,
+        root: &Path,
+        query: &str,
+        matches: &mut Vec<(PathBuf, String, String)>,
+    ) {
+        let query_lower = query.to_lowercase();
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if name.starts_with('.') {
+                    continue;
+                }
+                let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+                if is_dir {
+                    self.collect_matching_files(&path, root, query, matches);
+                } else {
+                    let is_md = path
+                        .extension()
+                        .map(|e| e == "md" || e == "markdown")
+                        .unwrap_or(false);
+                    if is_md {
+                        let rel_path = path.strip_prefix(root).unwrap_or(&path);
+                        let rel_str = rel_path.to_string_lossy().into_owned();
+                        if name.to_lowercase().contains(&query_lower)
+                            || rel_str.to_lowercase().contains(&query_lower)
+                        {
+                            let parent_dir = rel_path
+                                .parent()
+                                .map(|p| p.to_string_lossy().into_owned())
+                                .unwrap_or_default();
+                            matches.push((path, name, parent_dir));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -72,119 +130,257 @@ impl FileTree {
     ) -> Option<PathBuf> {
         self.last_hovered_folder = self.hovered_folder.take();
 
-        // Handle marquee drag selection input
-        let pointer = ui.input(|i| i.pointer.clone());
-        if !pointer.any_down() {
-            self.drag_started_on_item = false;
-        }
+        if self.search_visible {
+            let esc_pressed = ui.input(|i| i.key_pressed(egui::Key::Escape));
+            if esc_pressed {
+                self.search_visible = false;
+                self.search_query.clear();
+            } else {
+                let mut close_search = false;
+                let mut text_edit_lost_focus = false;
 
-        if pointer.any_down()
-            && !self.focus_input
-            && self.dragged_items.is_empty()
-            && !self.drag_started_on_item
-        {
-            if pointer.is_decidedly_dragging()
-                && let Some(press_origin) = pointer.press_origin()
-                    && ui.clip_rect().contains(press_origin) {
-                        let latest_pos = pointer.latest_pos().unwrap_or(press_origin);
-                        let selection_rect = egui::Rect::from_two_pos(press_origin, latest_pos);
+                ui.add_space(4.0);
+                let input_w = ui.available_width();
 
-                        if self.drag_select_rect.is_none() {
-                            let ctrl_pressed = ui.input(|i| i.modifiers.command);
-                            if ctrl_pressed {
-                                self.initial_selected_items = self.selected_items.clone();
-                            } else {
-                                self.initial_selected_items.clear();
+                let text_edit = egui::TextEdit::singleline(&mut self.search_query)
+                    .hint_text("Search files...")
+                    .desired_width(f32::INFINITY);
+
+                let response = ui.add_sized(egui::vec2(input_w, 24.0), text_edit);
+
+                if self.focus_search {
+                    response.request_focus();
+                    self.focus_search = false;
+                } else if response.lost_focus() {
+                    text_edit_lost_focus = true;
+                }
+
+                let query = self.search_query.trim().to_string();
+                let mut clicked_file = None;
+
+                if !query.is_empty() {
+                    let mut matches = Vec::new();
+                    self.collect_matching_files(root, root, &query, &mut matches);
+                    matches.sort_by(|a, b| a.1.cmp(&b.1));
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        if matches.is_empty() {
+                            ui.weak("No matching files found");
+                        } else {
+                            if self.search_selected_index >= matches.len() {
+                                self.search_selected_index = 0;
+                            }
+
+                            let down_pressed = ui.input(|i| i.key_pressed(egui::Key::ArrowDown));
+                            let up_pressed = ui.input(|i| i.key_pressed(egui::Key::ArrowUp));
+                            let enter_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
+
+                            if down_pressed {
+                                if self.search_selected_index + 1 < matches.len() {
+                                    self.search_selected_index += 1;
+                                }
+                            } else if up_pressed {
+                                if self.search_selected_index > 0 {
+                                    self.search_selected_index -= 1;
+                                }
+                            } else if enter_pressed && !matches.is_empty() {
+                                clicked_file = Some(matches[self.search_selected_index].0.clone());
+                                close_search = true;
+                            }
+
+                            for (idx, (path, name, parent_dir)) in matches.into_iter().enumerate() {
+                                let is_selected = self.search_selected_index == idx
+                                    || self.selected_items.contains(&path);
+
+                                let label_text = if parent_dir.is_empty() {
+                                    name.clone()
+                                } else {
+                                    format!("{} ({})", name, parent_dir)
+                                };
+
+                                let item_w = ui.available_width();
+                                let (rect, response) = ui.allocate_exact_size(
+                                    egui::vec2(item_w, 22.0),
+                                    egui::Sense::click(),
+                                );
+
+                                if ui.is_rect_visible(rect) {
+                                    if is_selected {
+                                        ui.painter().rect_filled(
+                                            rect,
+                                            2.0,
+                                            ui.visuals().selection.bg_fill,
+                                        );
+                                    } else if response.hovered() {
+                                        ui.painter().rect_filled(
+                                            rect,
+                                            2.0,
+                                            ui.visuals().widgets.hovered.bg_fill,
+                                        );
+                                    }
+
+                                    let text_color = if is_selected {
+                                        ui.visuals().selection.stroke.color
+                                    } else {
+                                        ui.visuals().text_color()
+                                    };
+
+                                    let mut child_ui = ui.child_ui(
+                                        rect.shrink2(egui::vec2(4.0, 1.0)),
+                                        *ui.layout(),
+                                    );
+                                    child_ui.add(
+                                        egui::Label::new(
+                                            egui::RichText::new(label_text).color(text_color),
+                                        )
+                                        .truncate(true),
+                                    );
+                                }
+
+                                if response.clicked() {
+                                    self.search_selected_index = idx;
+                                    self.selected_items.clear();
+                                    self.selected_items.insert(path.clone());
+                                    clicked_file = Some(path);
+                                    close_search = true;
+                                }
                             }
                         }
-
-                        self.drag_select_rect = Some(selection_rect);
-                        self.selected_items = self.initial_selected_items.clone();
-                    }
-        } else {
-            self.drag_select_rect = None;
-        }
-
-        let mut clicked_file = None;
-        self.render_dir(ui, root, &mut clicked_file, active_file, true);
-
-        // Render expanding empty space at the bottom of the tree for root actions
-        let remaining_space = ui.available_size();
-        if remaining_space.y > 10.0 {
-            let (_rect, response) = ui.allocate_at_least(remaining_space, egui::Sense::click());
-
-            if response.clicked() {
-                self.selected_items.clear();
-                self.selected_folder = None;
-            }
-
-            if response.hovered()
-                && ui.input(|i| i.pointer.any_released()) {
-                    let dragged = std::mem::take(&mut self.dragged_items);
-                    let valid_dragged: Vec<_> =
-                        dragged.into_iter().filter(|src| src != root).collect();
-                    if !valid_dragged.is_empty() {
-                        self.move_items(&valid_dragged, root, active_file);
-                    }
-                }
-
-            response.context_menu(|ui| {
-                if ui.button("New File").clicked() {
-                    self.start_creation(CreatingType::File {
-                        parent_dir: root.to_path_buf(),
                     });
-                    ui.close_menu();
                 }
-                if ui.button("New Folder").clicked() {
-                    self.start_creation(CreatingType::Folder {
-                        parent_dir: root.to_path_buf(),
-                    });
-                    ui.close_menu();
-                }
-                ui.separator();
-                let can_paste = self.clipboard.is_some();
-                if ui
-                    .add_enabled(can_paste, egui::Button::new("Paste"))
-                    .clicked()
+
+                if clicked_file.is_some()
+                    || close_search
+                    || (text_edit_lost_focus && clicked_file.is_none())
                 {
-                    self.paste_item(root, active_file);
-                    ui.close_menu();
+                    self.search_visible = false;
+                    self.search_query.clear();
+                    if clicked_file.is_some() {
+                        return clicked_file;
+                    }
+                } else {
+                    return None;
                 }
-            });
+            }
         }
 
-        // Handle drag tooltip
-        if !self.dragged_items.is_empty() {
-            if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
-                egui::Area::new(egui::Id::new("drag_icon"))
-                    .order(egui::Order::Tooltip)
-                    .fixed_pos(mouse_pos + egui::vec2(10.0, 10.0))
-                    .show(ui.ctx(), |ui| {
-                        if self.dragged_items.len() == 1 {
-                            let name = self.dragged_items[0]
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy();
-                            ui.label(name);
-                        } else {
-                            ui.label(format!("Moving {} items", self.dragged_items.len()));
+        // Standard hierarchical tree view inside scroll area
+        let mut clicked_file = None;
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            // Handle marquee drag selection input
+            let pointer = ui.input(|i| i.pointer.clone());
+            if !pointer.any_down() {
+                self.drag_started_on_item = false;
+            }
+
+            if pointer.any_down()
+                && !self.focus_input
+                && self.dragged_items.is_empty()
+                && !self.drag_started_on_item
+            {
+                if pointer.is_decidedly_dragging()
+                    && let Some(press_origin) = pointer.press_origin()
+                        && ui.clip_rect().contains(press_origin) {
+                            let latest_pos = pointer.latest_pos().unwrap_or(press_origin);
+                            let selection_rect = egui::Rect::from_two_pos(press_origin, latest_pos);
+
+                            if self.drag_select_rect.is_none() {
+                                let ctrl_pressed = ui.input(|i| i.modifiers.command);
+                                if ctrl_pressed {
+                                    self.initial_selected_items = self.selected_items.clone();
+                                } else {
+                                    self.initial_selected_items.clear();
+                                }
+                            }
+
+                            self.drag_select_rect = Some(selection_rect);
+                            self.selected_items = self.initial_selected_items.clone();
                         }
-                    });
+            } else {
+                self.drag_select_rect = None;
             }
 
-            if ui.input(|i| i.pointer.any_released()) {
-                self.dragged_items.clear();
-            }
-        }
+            self.render_dir(ui, root, &mut clicked_file, active_file, true);
 
-        // Paint marquee selection rectangle
-        if let Some(rect) = self.drag_select_rect {
-            let fill_color = ui.visuals().selection.bg_fill.linear_multiply(0.15);
-            let stroke_color = ui.visuals().selection.bg_fill;
-            ui.painter()
-                .rect(rect, 0.0, fill_color, egui::Stroke::new(1.0_f32, stroke_color));
-            ui.ctx().request_repaint();
-        }
+            // Render expanding empty space at the bottom of the tree for root actions
+            let remaining_space = ui.available_size();
+            if remaining_space.y > 10.0 {
+                let (_rect, response) = ui.allocate_at_least(remaining_space, egui::Sense::click());
+
+                if response.clicked() {
+                    self.selected_items.clear();
+                    self.selected_folder = None;
+                }
+
+                if response.hovered()
+                    && ui.input(|i| i.pointer.any_released()) {
+                        let dragged = std::mem::take(&mut self.dragged_items);
+                        let valid_dragged: Vec<_> =
+                            dragged.into_iter().filter(|src| src != root).collect();
+                        if !valid_dragged.is_empty() {
+                            self.move_items(&valid_dragged, root, active_file);
+                        }
+                    }
+
+                response.context_menu(|ui| {
+                    if ui.button("New File").clicked() {
+                        self.start_creation(CreatingType::File {
+                            parent_dir: root.to_path_buf(),
+                        });
+                        ui.close_menu();
+                    }
+                    if ui.button("New Folder").clicked() {
+                        self.start_creation(CreatingType::Folder {
+                            parent_dir: root.to_path_buf(),
+                        });
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    let can_paste = self.clipboard.is_some();
+                    if ui
+                        .add_enabled(can_paste, egui::Button::new("Paste"))
+                        .clicked()
+                    {
+                        self.paste_item(root, active_file);
+                        ui.close_menu();
+                    }
+                });
+            }
+
+            // Handle drag tooltip
+            if !self.dragged_items.is_empty() {
+                if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
+                    egui::Area::new(egui::Id::new("drag_icon"))
+                        .order(egui::Order::Tooltip)
+                        .fixed_pos(mouse_pos + egui::vec2(10.0, 10.0))
+                        .show(ui.ctx(), |ui| {
+                            if self.dragged_items.len() == 1 {
+                                let name = self.dragged_items[0]
+                                    .file_name()
+                                    .unwrap_or_default()
+                                    .to_string_lossy();
+                                ui.label(name);
+                            } else {
+                                ui.label(format!("Moving {} items", self.dragged_items.len()));
+                            }
+                        });
+                }
+
+                if ui.input(|i| i.pointer.any_released()) {
+                    self.dragged_items.clear();
+                }
+            }
+
+            // Paint marquee selection rectangle
+            if let Some(rect) = self.drag_select_rect {
+                let fill_color = ui.visuals().selection.bg_fill.linear_multiply(0.15);
+                let stroke_color = ui.visuals().selection.bg_fill;
+                ui.painter()
+                    .rect(rect, 0.0, fill_color, egui::Stroke::new(1.0_f32, stroke_color));
+                ui.ctx().request_repaint();
+            }
+        });
 
         clicked_file
     }
@@ -631,15 +827,16 @@ impl FileTree {
         active_file: &mut Option<PathBuf>,
     ) {
         ui.horizontal(|ui| {
+            let input_w = ui.available_width();
             let text_edit = egui::TextEdit::singleline(&mut self.name_buffer)
                 .hint_text(if is_file {
                     "file_name.md"
                 } else {
                     "Folder name"
                 })
-                .desired_width(120.0);
+                .desired_width(f32::INFINITY);
 
-            let response = ui.add(text_edit);
+            let response = ui.add_sized(egui::vec2(input_w, 24.0), text_edit);
 
             if self.focus_input {
                 response.request_focus();
@@ -961,5 +1158,31 @@ mod tests {
         assert!(tree.drag_select_rect.is_some());
         // Selection SHOULD be cleared since Ctrl was not pressed
         assert!(tree.selected_items.is_empty());
+    }
+
+    #[test]
+    fn test_file_tree_collect_matching_files() {
+        let temp_dir = std::env::temp_dir().join("drmd_search_test");
+        let sub_dir = temp_dir.join("subfolder");
+        let _ = fs::create_dir_all(&sub_dir);
+
+        let file1 = temp_dir.join("alpha_note.md");
+        let file2 = sub_dir.join("beta_test.md");
+        let file3 = temp_dir.join("gamma_ignored.txt");
+
+        let _ = fs::write(&file1, "alpha content");
+        let _ = fs::write(&file2, "beta content");
+        let _ = fs::write(&file3, "gamma content");
+
+        let tree = FileTree::new();
+        let mut matches = Vec::new();
+        tree.collect_matching_files(&temp_dir, &temp_dir, "beta", &mut matches);
+
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].1, "beta_test.md");
+        assert_eq!(matches[0].2, "subfolder");
+
+        // Clean up
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }
