@@ -513,6 +513,7 @@ impl CommonMarkViewerInternal {
         let layout = egui::Layout::left_to_right(egui::Align::BOTTOM).with_main_wrap(true);
 
         let re = ui.allocate_ui_with_layout(egui::vec2(max_width, 0.0), layout, |ui| {
+            ui.set_max_width(max_width);
             ui.spacing_mut().item_spacing.x = 0.0;
             let height = ui.text_style_height(&TextStyle::Body);
             ui.set_row_height(height);
@@ -593,6 +594,7 @@ impl CommonMarkViewerInternal {
 
                 let max_width = options.max_width(ui);
                 ui.allocate_ui_with_layout(egui::vec2(max_width, 0.0), layout, |ui| {
+                    ui.set_max_width(max_width);
                     ui.spacing_mut().item_spacing.x = 0.0;
                     let scroll_cache = cache.scroll(&self.source_id);
 
@@ -759,10 +761,12 @@ impl CommonMarkViewerInternal {
             self.curr_table += 1;
 
             egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.set_max_width(max_width);
                 let Table { header, rows } = parse_table(events);
 
                 egui::ScrollArea::horizontal()
                     .id_source(id)
+                    .max_width(max_width)
                     .show(ui, |ui| {
                         egui::Grid::new(id.with("grid")).striped(true).show(ui, |ui| {
                             for col in header {
@@ -899,7 +903,8 @@ impl CommonMarkViewerInternal {
                     
                     if !bytes.is_empty() {
                         let image = egui::Image::from_bytes(uri, bytes.clone())
-                            .fit_to_original_size(1.0);
+                            .fit_to_original_size(1.0)
+                            .max_width(ui.available_width());
                         ui.add(image);
                     } else {
                         // Fallback to plain text on error
@@ -940,7 +945,8 @@ impl CommonMarkViewerInternal {
                         ui.horizontal(|ui| {
                             ui.label("    ");
                             let image = egui::Image::from_bytes(uri, bytes.clone())
-                                .fit_to_original_size(1.0);
+                                .fit_to_original_size(1.0)
+                                .max_width(ui.available_width());
                             ui.add(image);
                         });
                         newline(ui);

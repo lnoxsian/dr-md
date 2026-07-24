@@ -1676,6 +1676,13 @@ fn create_layout_job(
         Color32::from_rgb(140, 140, 140)
     };
 
+    let link_format = TextFormat {
+        font_id: normal_font.clone(),
+        color: link_color,
+        underline: egui::Stroke::new(1.0_f32, link_color),
+        ..Default::default()
+    };
+
     let mut in_code_block = false;
     let mut lines = text.split('\n').peekable();
 
@@ -1687,103 +1694,70 @@ fn create_layout_job(
         };
 
         let trimmed = line.trim();
-        if trimmed.starts_with("```") {
+        let is_fence = trimmed.starts_with("```");
+        if is_fence {
             in_code_block = !in_code_block;
             line_format.color = code_color;
+            job.append(line, 0.0, line_format);
         } else if in_code_block {
             line_format.color = code_color;
-        } else if trimmed.starts_with('#') {
-            line_format.font_id = heading_font.clone();
-            line_format.color = header_color;
-        } else if trimmed.starts_with('>') {
-            line_format.color = blockquote_color;
-        }
-
-        let line_chars: Vec<char> = line.chars().collect();
-        let mut idx = 0;
-        while idx < line_chars.len() {
-            let mut matched = false;
-
-            // Check for wiki link: [[path]] or [[path|label]]
-            if idx + 2 < line_chars.len() && line_chars[idx] == '[' && line_chars[idx + 1] == '[' {
-                let mut end_pos = None;
-                for j in (idx + 2)..line_chars.len() {
-                    if j + 1 < line_chars.len() && line_chars[j] == ']' && line_chars[j + 1] == ']'
-                    {
-                        end_pos = Some(j);
-                        break;
-                    }
-                }
-                if let Some(j) = end_pos {
-                    let text_segment: String = line_chars[idx..=j + 1].iter().collect();
-                    job.append(
-                        &text_segment,
-                        0.0,
-                        TextFormat {
-                            font_id: normal_font.clone(),
-                            color: link_color,
-                            underline: egui::Stroke::new(1.0_f32, link_color),
-                            ..Default::default()
-                        },
-                    );
-                    idx = j + 2;
-                    matched = true;
-                }
+            job.append(line, 0.0, line_format);
+        } else {
+            if trimmed.starts_with('#') {
+                line_format.font_id = heading_font.clone();
+                line_format.color = header_color;
+            } else if trimmed.starts_with('>') {
+                line_format.color = blockquote_color;
             }
 
-            // Check for standard markdown link: [label](url)
-            if !matched && line_chars[idx] == '[' {
-                let mut end_bracket = None;
-                for (j, c) in line_chars.iter().enumerate().skip(idx + 1) {
-                    if *c == ']' {
-                        end_bracket = Some(j);
-                        break;
-                    }
-                }
-                if let Some(eb) = end_bracket
-                    && eb + 1 < line_chars.len() && line_chars[eb + 1] == '(' {
-                        let mut end_paren = None;
-                        for (j, c) in line_chars.iter().enumerate().skip(eb + 2) {
-                            if *c == ')' {
-                                end_paren = Some(j);
-                                break;
-                            }
-                        }
-                        if let Some(ep) = end_paren {
-                            let text_segment: String = line_chars[idx..=ep].iter().collect();
-                            job.append(
-                                &text_segment,
-                                0.0,
-                                TextFormat {
-                                    font_id: normal_font.clone(),
-                                    color: link_color,
-                                    underline: egui::Stroke::new(1.0_f32, link_color),
-                                    ..Default::default()
-                                },
-                            );
-                            idx = ep + 1;
+            if !line.contains('[') {
+                job.append(line, 0.0, line_format);
+            } else {
+                let bytes = line.as_bytes();
+                let len = bytes.len();
+                let mut idx = 0;
+
+                while idx < len {
+                    let mut matched = false;
+
+                    // Wiki link: [[path]] or [[path|label]]
+                    if idx + 3 < len && &bytes[idx..idx + 2] == b"[[" {
+                        if let Some(rel_end) = line[idx + 2..].find("]]") {
+                            let end_pos = idx + 2 + rel_end + 2;
+                            job.append(&line[idx..end_pos], 0.0, link_format.clone());
+                            idx = end_pos;
                             matched = true;
                         }
                     }
-            }
 
-            if matched {
-                continue;
-            }
+                    // Standard markdown link: [label](url)
+                    if !matched && bytes[idx] == b'[' {
+                        if let Some(rel_close_bracket) = line[idx + 1..].find(']') {
+                            let close_bracket = idx + 1 + rel_close_bracket;
+                            if close_bracket + 1 < len && bytes[close_bracket + 1] == b'(' {
+                                if let Some(rel_close_paren) = line[close_bracket + 2..].find(')') {
+                                    let close_paren = close_bracket + 2 + rel_close_paren;
+                                    let end_pos = close_paren + 1;
+                                    job.append(&line[idx..end_pos], 0.0, link_format.clone());
+                                    idx = end_pos;
+                                    matched = true;
+                                }
+                            }
+                        }
+                    }
 
-            let mut run = String::new();
-            run.push(line_chars[idx]);
-            idx += 1;
+                    if matched {
+                        continue;
+                    }
 
-            while idx < line_chars.len() {
-                let c = line_chars[idx];
-                if c == '[' {
-                    break;
+                    let start_run = idx;
+                    idx += 1;
+                    while idx < len && bytes[idx] != b'[' {
+                        idx += 1;
+                    }
+                    job.append(&line[start_run..idx], 0.0, line_format.clone());
                 }
-                run.push(c);
-                idx += 1;
             }
-            job.append(&run, 0.0, line_format.clone());
         }
 
         if lines.peek().is_some() {

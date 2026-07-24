@@ -81,6 +81,8 @@ pub fn code_block<'t>(
     text: &str,
     layouter: &'t mut dyn FnMut(&Ui, &str, f32) -> std::sync::Arc<egui::Galley>,
 ) {
+    ui.set_max_width(max_width);
+    let effective_width = max_width.min(ui.available_width());
     let mut text = text.strip_suffix('\n').unwrap_or(text);
 
     // To manually add background color to the code block, we imitate what
@@ -92,7 +94,7 @@ pub fn code_block<'t>(
     // the how to tell `egui` that the text is not editable.
     let output = egui::TextEdit::multiline(&mut text)
         .layouter(layouter)
-        .desired_width(max_width)
+        .desired_width(effective_width)
         // prevent trailing lines
         .desired_rows(1)
         .show(ui);
@@ -300,7 +302,10 @@ pub(crate) fn blockquote(ui: &mut Ui, accent: egui::Color32, add_contents: impl 
             left: 10.0,
             ..Default::default()
         })
-        .show(ui, add_contents)
+        .show(ui, |ui| {
+            ui.set_max_width((ui.available_width() - 10.0).max(0.0));
+            add_contents(ui);
+        })
         .response;
 
     // FIXME: Add some rounding

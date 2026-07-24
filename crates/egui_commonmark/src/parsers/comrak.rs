@@ -45,6 +45,7 @@ impl CommonMarkViewerInternal {
         let layout = egui::Layout::left_to_right(egui::Align::BOTTOM).with_main_wrap(true);
 
         ui.allocate_ui_with_layout(egui::vec2(max_width, 0.0), layout, |ui| {
+            ui.set_max_width(max_width);
             ui.spacing_mut().item_spacing.x = 0.0;
             let height = ui.text_style_height(&TextStyle::Body);
             ui.set_row_height(height);
@@ -187,10 +188,12 @@ impl CommonMarkViewerInternal {
                     self.should_insert_newline = false;
                     newline(ui);
                     egui::Frame::group(ui.style()).show(ui, |ui| {
+                        ui.set_max_width(max_width);
                         let id = self.source_id.with(self.curr_table);
                         self.curr_table += 1;
                         egui::ScrollArea::horizontal()
                             .id_source(id)
+                            .max_width(max_width)
                             .show(ui, |ui| {
                                 egui::Grid::new(id.with("grid")).striped(true).show(ui, |ui| {
                                     self.render(ui, cache, options, max_width, c);

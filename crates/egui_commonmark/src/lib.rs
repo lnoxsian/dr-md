@@ -82,6 +82,7 @@ pub struct CommonMarkCache {
     has_installed_loaders: bool,
     pub(crate) mermaid_cache: std::sync::Arc<std::sync::Mutex<HashMap<u64, crate::mermaid::MermaidCacheEntry>>>,
     pub(crate) math_cache: HashMap<u64, Vec<u8>>,
+    pub(crate) syntax_cache: HashMap<u64, egui::text::LayoutJob>,
     pub zoomed_image_request: Option<(String, std::sync::Arc<[u8]>)>,
 }
 
@@ -99,6 +100,7 @@ impl Default for CommonMarkCache {
             has_installed_loaders: false,
             mermaid_cache: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
             math_cache: HashMap::new(),
+            syntax_cache: HashMap::new(),
             zoomed_image_request: None,
         }
     }
@@ -634,10 +636,11 @@ impl Image {
     }
 
     fn end(self, ui: &mut Ui, options: &CommonMarkOptions) {
+        let max_w = options.max_width(ui).min(ui.available_width());
         let response = ui.add(
             egui::Image::from_uri(&self.uri)
                 .fit_to_original_size(1.0)
-                .max_width(options.max_width(ui)),
+                .max_width(max_w),
         );
 
         if !self.alt_text.is_empty() && options.show_alt_text_on_hover {
@@ -678,9 +681,35 @@ impl FencedCodeBlock {
         ui.scope(|ui| {
             Self::pre_syntax_highlighting(cache, options, ui);
 
-            let mut layout = |ui: &Ui, string: &str, wrap_width: f32| {
-                let mut job = self.syntax_highlighting(cache, options, &self.lang, ui, string);
+            let curr_theme_name = options.curr_theme(ui);
+            let dark_mode = ui.visuals().dark_mode;
+            let font_size = ui.style().text_styles.get(&TextStyle::Monospace).map_or(14.0, |d| d.size);
+
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            use std::hash::{Hash, Hasher};
+            self.content.hash(&mut hasher);
+            self.lang.hash(&mut hasher);
+            curr_theme_name.hash(&mut hasher);
+            dark_mode.hash(&mut hasher);
+            (font_size as u32).hash(&mut hasher);
+            let hash = hasher.finish();
+
+            if cache.syntax_cache.len() > 500 {
+                cache.syntax_cache.clear();
+            }
+
+            let cached_job = if let Some(job) = cache.syntax_cache.get(&hash) {
+                job.clone()
+            } else {
+                let job = self.syntax_highlighting(cache, options, &self.lang, ui, &self.content);
+                cache.syntax_cache.insert(hash, job.clone());
+                job
+            };
+
+            let mut layout = |ui: &Ui, _string: &str, wrap_width: f32| {
+                let mut job = cached_job.clone();
                 job.wrap.max_width = wrap_width;
+                job.wrap.break_anywhere = true;
                 ui.fonts(|f| f.layout_job(job))
             };
 
